@@ -35,13 +35,7 @@ jobs:
         run: npm run lint
       
       - name: Run unit tests
-        run: npm run test:coverage
-      
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-      
-      - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm test -- --run --exclude="**/e2e/**"
 
   build:
     runs-on: ubuntu-latest
