@@ -37,9 +37,10 @@ jobs:
       - name: Run unit tests
         run: npm test -- --run --exclude="**/e2e/**"
 
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
       
@@ -55,20 +56,9 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v3
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
 
