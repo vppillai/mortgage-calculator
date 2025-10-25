@@ -31,7 +31,29 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Mathematical Accuracy Compliance
+- [ ] All calculation formulas documented with industry-standard sources
+- [ ] Test scenarios defined for cross-validation against known results
+- [ ] Precision requirements specified (no floating-point errors)
+- [ ] Edge cases and boundary conditions identified
+
+### User Experience Standards
+- [ ] Responsive design approach confirmed (mobile-first)
+- [ ] Dark/light mode support planned
+- [ ] Tabular data presentation strategy defined
+- [ ] Accessibility requirements (WCAG 2.1 AA) planned
+
+### Static Page Requirements
+- [ ] GitHub Pages compatibility confirmed
+- [ ] No server-side dependencies planned
+- [ ] Progressive Web App capabilities considered
+- [ ] Performance targets defined (<2s load time)
+
+### Testing & CI/CD
+- [ ] Automated testing strategy for calculations
+- [ ] Cross-browser testing plan
+- [ ] GitHub Actions workflow planned
+- [ ] Deployment automation to GitHub Pages
 
 ## Project Structure
 

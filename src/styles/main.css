@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+    body {
+        @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+}
+
+/* Custom component styles */
+@layer components {
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .btn-primary {
+        @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+    }
+
+    .btn-secondary {
+        @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+    }
+
+    .btn-sm {
+        @apply px-3 py-1.5 text-sm;
+    }
+
+    .input {
+        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white;
+    }
+
+    .card {
+        @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
+    }
+
+    .label {
+        @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+    }
+
+    .error-message {
+        @apply text-sm text-red-600 dark:text-red-400 mt-1;
+    }
+
+    .tooltip {
+        @apply absolute z-10 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm dark:bg-gray-700;
+    }
+}
+
+/* Custom utilities */
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    /* Modern range input styles */
+    input[type="range"] {
+        @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        @apply appearance-none w-5 h-5 bg-blue-500 rounded-full cursor-pointer hover:bg-blue-600 transition-colors;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        @apply w-5 h-5 bg-blue-500 rounded-full cursor-pointer hover:bg-blue-600 transition-colors border-0;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    body {
+        @apply bg-white text-black;
+    }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 640px) {
+
+    /* Ensure tables are scrollable on mobile */
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Add visual indicator for scrollable content */
+    .overflow-x-auto::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar-thumb {
+        @apply bg-gray-300 dark:bg-gray-600 rounded;
+    }
+
+    /* Improve touch targets */
+    button,
+    .btn {
+        min-height: 44px;
+    }
+
+    /* Ensure inputs are large enough on mobile */
+    input,
+    select,
+    textarea {
+        min-height: 40px;
+        font-size: 16px;
+        /* Prevents zoom on iOS */
+    }
+}

@@ -1,0 +1,15 @@
+# npm package ignore file
+node_modules/
+tests/
+specs/
+.github/
+.vscode/
+.idea/
+*.log
+.env*
+src/
+vite.config.js
+tailwind.config.js
+playwright.config.js
+vitest.config.js
+

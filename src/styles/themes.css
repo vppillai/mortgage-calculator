@@ -1,0 +1,29 @@
+/* Dark/Light Mode Theme System */
+
+/* Smooth theme transitions */
+body,
+.card,
+.input,
+.btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dark mode specific adjustments */
+.dark {
+    color-scheme: dark;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+
+    body,
+    .card,
+    .input,
+    .btn {
+        transition: none !important;
+    }
+
+    .animate-fade-in {
+        animation: none !important;
+    }
+}

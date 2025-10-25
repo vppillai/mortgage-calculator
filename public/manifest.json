@@ -1,0 +1,36 @@
+{
+    "name": "Canadian Mortgage Calculator",
+    "short_name": "Mortgage Calc",
+    "description": "Calculate Canadian mortgage payments with pre-payment analysis and comparison features",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#1e40af",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/pwa-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/pwa-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "finance",
+        "productivity"
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Calculate Mortgage",
+            "url": "/",
+            "description": "Calculate mortgage payment"
+        }
+    ]
+}
