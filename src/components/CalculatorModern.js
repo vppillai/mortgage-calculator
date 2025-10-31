@@ -1384,7 +1384,14 @@ export class CalculatorModern {
         }
 
         try {
-            // Note: Loading state notification removed - the success notification will show when done
+            // Show loading notification for mobile users
+            const isMobile = this.isMobileDevice();
+            if (isMobile) {
+                eventBus.emit(EVENTS.NOTIFICATION, {
+                    message: 'Preparing screenshot...',
+                    type: 'info'
+                });
+            }
 
             // Get the table container
             const tableContainer = document.querySelector('#inline-comparison-table');
@@ -1470,35 +1477,71 @@ export class CalculatorModern {
             // Append to body temporarily
             document.body.appendChild(clone);
 
-            // Capture with html2canvas
-            const canvas = await html2canvas(clone, {
-                backgroundColor: document.documentElement.classList.contains('dark') 
-                    ? '#1f2937' 
+            // Capture with html2canvas - optimized for mobile browsers
+            const canvasOptions = {
+                backgroundColor: document.documentElement.classList.contains('dark')
+                    ? '#1f2937'
                     : '#ffffff',
-                scale: 2,
+                scale: isMobile ? 1 : 2, // Lower scale for mobile to prevent memory issues
                 logging: false,
                 useCORS: true,
                 allowTaint: false,
-            });
+                width: clone.scrollWidth,
+                height: clone.scrollHeight,
+                // Mobile-specific optimizations
+                foreignObjectRendering: false, // Disable for better Android compatibility
+                removeContainer: true,
+                imageTimeout: 15000, // Longer timeout for slower mobile networks
+            };
+
+            let canvas;
+            try {
+                canvas = await html2canvas(clone, canvasOptions);
+            } catch (renderError) {
+                // If rendering fails, try with more conservative options
+                logger.debug('html2canvas failed with optimized options, trying fallback:', renderError);
+
+                const fallbackOptions = {
+                    backgroundColor: document.documentElement.classList.contains('dark')
+                        ? '#1f2937'
+                        : '#ffffff',
+                    scale: 1,
+                    logging: false,
+                    useCORS: false,
+                    allowTaint: true,
+                    foreignObjectRendering: false,
+                };
+
+                canvas = await html2canvas(clone, fallbackOptions);
+            }
 
             // Clean up
             document.body.removeChild(clone);
 
-            // Convert to blob and share/copy
-            canvas.toBlob(async (blob) => {
+            // Convert to blob and share/copy with fallback for Android
+            const processScreenshot = async (blob) => {
                 if (!blob) {
-                    eventBus.emit(EVENTS.NOTIFICATION, {
-                        message: 'Failed to generate screenshot',
-                        type: 'error'
-                    });
-                    return;
+                    // If blob generation fails, try data URL approach for Android compatibility
+                    try {
+                        const dataURL = canvas.toDataURL('image/png');
+                        const response = await fetch(dataURL);
+                        blob = await response.blob();
+
+                        if (!blob) {
+                            throw new Error('Failed to create blob from data URL');
+                        }
+                    } catch (fallbackError) {
+                        logger.error('Both blob and data URL generation failed:', fallbackError);
+                        eventBus.emit(EVENTS.NOTIFICATION, {
+                            message: 'Failed to generate screenshot',
+                            type: 'error'
+                        });
+                        return;
+                    }
                 }
 
                 try {
-                    // On mobile, try Web Share API first (works better on mobile than clipboard)
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                                     (window.innerWidth <= 768 && 'ontouchstart' in window);
-                    
+                    // Prioritize share methods based on mobile device capabilities
                     if (isMobile && navigator.share) {
                         try {
                             const file = new File([blob], 'mortgage-comparison.png', { type: 'image/png' });
@@ -1519,70 +1562,42 @@ export class CalculatorModern {
                                 // User cancelled, don't show any notification
                                 return;
                             }
-                            // Files not supported, try download instead on mobile
+                            // Files not supported, try download instead
                             logger.debug('Web Share with files not supported, trying download:', shareError);
-                            
-                            // On mobile, download is often better than clipboard
-                            try {
-                                const url = canvas.toDataURL('image/png');
-                                const link = document.createElement('a');
-                                link.download = 'mortgage-comparison.png';
-                                link.href = url;
-                                
-                                // Create a click event that works on mobile
-                                const clickEvent = new MouseEvent('click', {
-                                    view: window,
-                                    bubbles: true,
-                                    cancelable: true
-                                });
-                                link.dispatchEvent(clickEvent);
-                                
-                                // Also try programmatic click for iOS
-                                if (document.createEvent) {
-                                    const event = document.createEvent('MouseEvents');
-                                    event.initEvent('click', true, true);
-                                    link.dispatchEvent(event);
-                                }
-                                
-                                // Fallback: open in new window for mobile browsers that block downloads
-                                setTimeout(() => {
-                                    window.open(url, '_blank');
-                                }, 100);
-                                
-                                eventBus.emit(EVENTS.NOTIFICATION, {
-                                    message: 'Screenshot ready - check your downloads',
-                                    type: 'info'
-                                });
-                                return;
-                            } catch (downloadError) {
-                                logger.debug('Download also failed, falling back to clipboard:', downloadError);
-                                // Continue to clipboard fallback below
-                            }
+
+                            this.downloadScreenshot(canvas, blob);
+
+                            eventBus.emit(EVENTS.NOTIFICATION, {
+                                message: 'Screenshot ready - check your downloads',
+                                type: 'success'
+                            });
+                            return;
                         }
                     }
 
-                    // Desktop or fallback: Copy to clipboard
-                    try {
-                        const item = new ClipboardItem({ 'image/png': blob });
-                        await navigator.clipboard.write([item]);
+                    // Desktop or fallback: Copy to clipboard (if supported)
+                    if (!isMobile && navigator.clipboard && navigator.clipboard.write) {
+                        try {
+                            const item = new ClipboardItem({ 'image/png': blob });
+                            await navigator.clipboard.write([item]);
 
-                        eventBus.emit(EVENTS.NOTIFICATION, {
-                            message: 'Screenshot copied to clipboard!',
-                            type: 'success'
-                        });
-                    } catch (clipboardError) {
-                        // Clipboard API not supported, download instead
-                        const url = canvas.toDataURL('image/png');
-                        const link = document.createElement('a');
-                        link.download = 'mortgage-comparison.png';
-                        link.href = url;
-                        link.click();
-
-                        eventBus.emit(EVENTS.NOTIFICATION, {
-                            message: 'Screenshot downloaded',
-                            type: 'info'
-                        });
+                            eventBus.emit(EVENTS.NOTIFICATION, {
+                                message: 'Screenshot copied to clipboard!',
+                                type: 'success'
+                            });
+                            return;
+                        } catch (clipboardError) {
+                            logger.debug('Clipboard write failed, falling back to download:', clipboardError);
+                        }
                     }
+
+                    // Fallback for all cases where clipboard fails or isn't available
+                    this.downloadScreenshot(canvas, blob);
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: isMobile ? 'Screenshot ready - check downloads' : 'Screenshot downloaded',
+                        type: 'success'
+                    });
                 } catch (error) {
                     logger.error('Failed to share/copy screenshot:', error);
                     eventBus.emit(EVENTS.NOTIFICATION, {
@@ -1590,7 +1605,16 @@ export class CalculatorModern {
                         type: 'error'
                     });
                 }
-            }, 'image/png');
+            };
+
+            // Try canvas.toBlob first, with fallback for Android browsers that don't support it
+            try {
+                canvas.toBlob(processScreenshot, 'image/png');
+            } catch (toBlobError) {
+                // Some Android browsers don't support toBlob, use data URL fallback
+                logger.debug('canvas.toBlob not supported, using data URL fallback:', toBlobError);
+                await processScreenshot(null); // This will trigger the data URL fallback
+            }
 
         } catch (error) {
             logger.error('Failed to capture screenshot:', error);
@@ -1598,6 +1622,67 @@ export class CalculatorModern {
                 message: 'Failed to capture screenshot',
                 type: 'error'
             });
+        }
+    }
+
+    /**
+     * Improved mobile device detection
+     */
+    isMobileDevice() {
+        // Check for touch support and screen size
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isSmallScreen = window.innerWidth <= 768;
+
+        // Check user agent for mobile indicators
+        const userAgent = navigator.userAgent.toLowerCase();
+        const mobileKeywords = ['android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone', 'mobile'];
+        const isMobileUA = mobileKeywords.some(keyword => userAgent.includes(keyword));
+
+        // Combine checks for more reliable detection
+        return (hasTouch && isSmallScreen) || isMobileUA;
+    }
+
+    /**
+     * Download screenshot with enhanced mobile browser compatibility
+     */
+    downloadScreenshot(canvas, blob) {
+        try {
+            // Method 1: Try blob URL download (most reliable)
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = `mortgage-comparison-${Date.now()}.png`;
+            link.href = url;
+            link.style.display = 'none';
+
+            // Append to body for better mobile compatibility
+            document.body.appendChild(link);
+
+            // For mobile browsers, add a short delay
+            if (this.isMobileDevice()) {
+                setTimeout(() => {
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            } else {
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+        } catch (blobError) {
+            logger.debug('Blob download failed, trying data URL:', blobError);
+
+            // Method 2: Fallback to data URL
+            try {
+                const url = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `mortgage-comparison-${Date.now()}.png`;
+                link.href = url;
+                link.click();
+            } catch (dataURLError) {
+                logger.error('All download methods failed:', dataURLError);
+                throw new Error('Download failed - browser may not support file downloads');
+            }
         }
     }
 }

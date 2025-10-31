@@ -101,10 +101,6 @@ const versionFile = join(publicDir, 'version.json');
 
 writeFileSync(versionFile, JSON.stringify(versionInfo, null, 2), 'utf-8');
 
-// Also write as JS module for import
-const versionJsFile = join(publicDir, 'version.js');
-writeFileSync(versionJsFile, `export default ${JSON.stringify(versionInfo, null, 2)};`, 'utf-8');
-
 console.log('✅ Version info injected:');
 console.log(`   Version: ${gitVersion}${isRelease ? ' (Release)' : ''}`);
 console.log(`   Build Time: ${buildTimeLocal}`);

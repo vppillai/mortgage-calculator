@@ -62,6 +62,5 @@ playwright-report/
 specs/
 test-results/
 
-# Generated version files (created during build)
+# Generated version file (created during build)
 public/version.json
-public/version.js
