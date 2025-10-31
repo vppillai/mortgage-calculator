@@ -1,8 +1,8 @@
 export default {
-  "version": "ccca174-dirty",
+  "version": "837ee37",
   "isRelease": false,
-  "commit": "ccca174b41abe71b4e545467a9d235fdaea46ba4",
-  "commitShort": "ccca174",
-  "buildTime": "2025-10-31T01:06:57.559Z",
-  "buildTimeLocal": "Oct 31, 2025, 01:06 AM UTC"
+  "commit": "837ee3702e84acbad6ea6e0631f62aa097b83399",
+  "commitShort": "837ee37",
+  "buildTime": "2025-10-31T01:17:31.979Z",
+  "buildTimeLocal": "Oct 31, 2025, 01:17 AM UTC"
 };
