@@ -35,6 +35,7 @@ jobs:
 
       - name: Run linter
       
+        run: npm run lint
       - name: Run unit tests
         run: npm test -- --run --exclude="**/e2e/**"
       
