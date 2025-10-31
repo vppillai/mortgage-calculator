@@ -1,8 +1,8 @@
 export default {
-  "version": "837ee37",
+  "version": "bdc8070-dirty",
   "isRelease": false,
-  "commit": "837ee3702e84acbad6ea6e0631f62aa097b83399",
-  "commitShort": "837ee37",
-  "buildTime": "2025-10-31T01:17:31.979Z",
-  "buildTimeLocal": "Oct 31, 2025, 01:17 AM UTC"
+  "commit": "bdc80705adc01d706a337c0c1936c0bc0e697c4b",
+  "commitShort": "bdc8070",
+  "buildTime": "2025-10-31T01:30:32.317Z",
+  "buildTimeLocal": "Oct 31, 2025, 01:30 AM UTC"
 };
