@@ -13,7 +13,6 @@ import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
 import { evaluateExpression, isExpression } from '../utils/expressionEvaluator.js';
 import {
     generateShareableUrl,
-    generateShareMetadata,
     shareWithNativeAPI,
     parseScenariosFromUrl,
     cleanUrl,
