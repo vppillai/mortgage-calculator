@@ -1,0 +1,5 @@
+export default {
+  "version": "v1.0.0-10-g74bfd41-dirty",
+  "buildTime": "2025-10-31T00:31:25.100Z",
+  "buildTimeLocal": "Oct 31, 2025, 12:31 AM UTC"
+};
