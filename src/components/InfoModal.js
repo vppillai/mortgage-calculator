@@ -15,17 +15,24 @@ export class InfoModal {
         const modal = document.createElement('div');
         modal.id = this.modalId;
         modal.className = 'fixed inset-0 z-50 hidden';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'modal-title');
+        modal.setAttribute('aria-describedby', 'modal-description');
         modal.innerHTML = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="modal-backdrop"></div>
+            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="modal-backdrop" aria-hidden="true"></div>
             <div class="fixed inset-0 z-10 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl">
+                    <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl" role="document">
                         <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
                             <div class="sm:flex sm:items-start">
                                 <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                    <h3 class="text-2xl font-semibold leading-6 text-gray-900 dark:text-white mb-4">
+                                    <h3 id="modal-title" class="text-2xl font-semibold leading-6 text-gray-900 dark:text-white mb-4">
                                         How This Calculator Works
                                     </h3>
+                                    <div id="modal-description" class="sr-only">
+                                        Information about how the mortgage calculator performs calculations and important disclaimers
+                                    </div>
                                     
                                     <div class="mt-4 space-y-6 text-sm text-gray-700 dark:text-gray-300">
                                         <section>
@@ -99,7 +106,7 @@ export class InfoModal {
                             </div>
                         </div>
                         <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                            <button type="button" id="close-info-modal" class="inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 sm:ml-3 sm:w-auto">
+                            <button type="button" id="close-info-modal" class="inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 sm:ml-3 sm:w-auto focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" aria-label="Close information modal">
                                 Got it!
                             </button>
                         </div>
@@ -137,6 +144,18 @@ export class InfoModal {
             modal.classList.remove('hidden');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
+
+            // Focus trap: Store previously focused element
+            this.previouslyFocused = document.activeElement;
+
+            // Focus the close button initially for accessibility
+            const closeBtn = document.getElementById('close-info-modal');
+            if (closeBtn) {
+                closeBtn.focus();
+            }
+
+            // Trap focus within modal
+            this.setupFocusTrap(modal);
         }
     }
 
@@ -146,6 +165,57 @@ export class InfoModal {
             modal.classList.add('hidden');
             this.isOpen = false;
             document.body.style.overflow = '';
+
+            // Remove focus trap
+            this.removeFocusTrap();
+
+            // Return focus to previously focused element
+            if (this.previouslyFocused && typeof this.previouslyFocused.focus === 'function') {
+                this.previouslyFocused.focus();
+            }
+        }
+    }
+
+    setupFocusTrap(modal) {
+        // Find all focusable elements
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusableElements.length === 0) return;
+
+        this.firstFocusable = focusableElements[0];
+        this.lastFocusable = focusableElements[focusableElements.length - 1];
+
+        // Handle Tab key to trap focus
+        this.handleTabKey = (e) => {
+            if (e.key !== 'Tab') return;
+
+            if (e.shiftKey) {
+                // Shift + Tab
+                if (document.activeElement === this.firstFocusable) {
+                    e.preventDefault();
+                    this.lastFocusable.focus();
+                }
+            } else {
+                // Tab
+                if (document.activeElement === this.lastFocusable) {
+                    e.preventDefault();
+                    this.firstFocusable.focus();
+                }
+            }
+        };
+
+        modal.addEventListener('keydown', this.handleTabKey);
+    }
+
+    removeFocusTrap() {
+        if (this.handleTabKey) {
+            const modal = document.getElementById(this.modalId);
+            if (modal) {
+                modal.removeEventListener('keydown', this.handleTabKey);
+            }
+            this.handleTabKey = null;
         }
     }
 }

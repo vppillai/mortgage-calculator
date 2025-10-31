@@ -11,17 +11,20 @@ test.describe('Comparison Flow', () => {
         await page.fill('#interestRate', '5.25');
         await page.fill('#amortizationYears', '25');
 
-        // Calculate
-        await page.click('button[type="submit"]');
+        // Wait for calculation (debounced)
+        await page.waitForTimeout(500);
 
         // Wait for results
-        await page.waitForSelector('#results-container', { state: 'visible' });
+        await page.waitForSelector('#base-mortgage-results', { state: 'visible' });
 
         // Add to comparison
         await page.click('#add-to-comparison');
 
+        // Wait for comparison table to update
+        await page.waitForTimeout(300);
+
         // Verify comparison table appears
-        await expect(page.locator('#comparison-container')).toContainText('Mortgage Comparison');
+        await expect(page.locator('#inline-comparison-table')).toBeVisible();
     });
 
     test('should display multiple scenarios in comparison', async ({ page }) => {

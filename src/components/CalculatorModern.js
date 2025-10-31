@@ -39,6 +39,8 @@ export class CalculatorModern {
         this.result = null;
         this.prepaymentResult = null;
         this.scenarios = [];
+        this.validationErrors = null;
+        this.isCalculating = false;
 
         // Check for shared scenarios in URL
         this.loadSharedScenarios();
@@ -63,18 +65,21 @@ export class CalculatorModern {
               <div class="space-y-4">
                 <!-- Loan Amount -->
                 <div>
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <label for="principal" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Loan Amount
                   </label>
                   <div class="relative">
-                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" aria-hidden="true">$</span>
                     <input
                       type="number"
                       id="principal"
+                      name="principal"
                       value="${this.state.principal}"
                       min="1000"
                       max="${MORTGAGE_CONSTANTS.MAX_PRINCIPAL}"
                       step="1000"
+                      aria-label="Loan amount in dollars"
+                      aria-required="true"
                       class="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -83,35 +88,41 @@ export class CalculatorModern {
                 <!-- Interest Rate & Amortization -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                    <label for="interestRate" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                       Interest Rate
                     </label>
                     <div class="relative">
                       <input
                         type="number"
                         id="interestRate"
+                        name="interestRate"
                         value="${this.state.interestRate}"
                         min="0.01"
                         max="30"
                         step="0.01"
+                        aria-label="Annual interest rate percentage"
+                        aria-required="true"
                         class="w-full pr-8 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
-                      <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">%</span>
+                      <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" aria-hidden="true">%</span>
                     </div>
                   </div>
                   
                   <div>
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                    <label for="amortizationYears" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                       Amortization
                     </label>
                     <input
                       type="number"
                       id="amortizationYears"
+                      name="amortizationYears"
                       value="${this.state.amortizationMonths / 12}"
                       min="1"
                       max="30"
                       step="1"
                       placeholder="Years"
+                      aria-label="Amortization period in years"
+                      aria-required="true"
                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -119,11 +130,14 @@ export class CalculatorModern {
 
                 <!-- Payment Frequency -->
                 <div>
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <label for="paymentFrequency" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Payment Frequency
                   </label>
                   <select 
-                    id="paymentFrequency" 
+                    id="paymentFrequency"
+                    name="paymentFrequency"
+                    aria-label="Payment frequency"
+                    aria-required="true"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="weekly" ${this.state.paymentFrequency === 'weekly' ? 'selected' : ''}>Weekly (52/year)</option>
@@ -139,20 +153,23 @@ export class CalculatorModern {
 
                 <!-- Extra Payment -->
                 <div>
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <label for="extraPayment" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Extra Payment Amount
                   </label>
                   <div class="relative">
-                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" aria-hidden="true">$</span>
                     <input
                       type="text"
                       id="extraPayment"
+                      name="extraPayment"
                       value="${this.state.extraPaymentAmount || ''}"
                       placeholder="e.g., 100 or (1200/12)+50"
+                      aria-label="Extra payment amount or calculation expression"
+                      aria-describedby="extraPaymentHelp"
                       class="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
-                  <p class="text-xs text-gray-500 mt-1">Enter amount or expression (e.g., 1200/12 or 50+25). Press Enter to calculate.</p>
+                  <p id="extraPaymentHelp" class="text-xs text-gray-500 mt-1">Enter amount or expression (e.g., 1200/12 or 50+25). Press Enter to calculate.</p>
                   ${this.state.extraPaymentAmount < 0 ?
                 '<p class="text-xs text-red-600 dark:text-red-400 mt-1">Amount must be positive</p>' :
                 this.state.extraPaymentAmount > this.result?.regularPayment * 2 ?
@@ -162,11 +179,13 @@ export class CalculatorModern {
 
                 <!-- Extra Payment Type -->
                 <div>
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                  <label for="extraPaymentFrequency" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Extra Payment Type
                   </label>
                   <select 
-                    id="extraPaymentFrequency" 
+                    id="extraPaymentFrequency"
+                    name="extraPaymentFrequency"
+                    aria-label="Extra payment frequency"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="per-payment">Each Payment</option>
@@ -209,14 +228,14 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios">
-                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                         Share
                       </button>
                     ` : ''}
-                    <button id="add-to-comparison" class="btn btn-primary btn-sm text-xs sm:text-sm">
+                    <button id="add-to-comparison" class="btn btn-primary btn-sm text-xs sm:text-sm" aria-label="Add current scenario to comparison">
                       + Add Current
                     </button>
                   </div>
@@ -230,10 +249,10 @@ export class CalculatorModern {
 
               <!-- Actions -->
               <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <button id="view-schedule" class="btn btn-secondary flex-1 text-sm sm:text-base">
+                <button id="view-schedule" class="btn btn-secondary flex-1 text-sm sm:text-base" aria-label="View detailed amortization schedule">
                   View Amortization Schedule
                 </button>
-                <button id="reset" class="btn btn-secondary text-sm sm:text-base">
+                <button id="reset" class="btn btn-secondary text-sm sm:text-base" aria-label="Reset calculator to default values">
                   Reset Calculator
                 </button>
               </div>
@@ -246,6 +265,18 @@ export class CalculatorModern {
 
     renderMainResults() {
         if (!this.result) {
+            if (this.validationErrors && this.validationErrors.isValid === false) {
+                return `
+        <div class="text-center py-8">
+          <div class="text-red-600 dark:text-red-400 mb-2" role="alert" aria-live="polite">
+            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="font-medium">Please fix the errors above to see results</p>
+          </div>
+        </div>
+      `;
+            }
             return `
         <div class="text-center py-8 text-gray-500">
           <p>Enter your mortgage details to see payment information</p>
@@ -253,9 +284,7 @@ export class CalculatorModern {
       `;
         }
 
-        const monthlyEquivalent = this.state.paymentFrequency === 'monthly'
-            ? this.result.regularPayment
-            : this.result.regularPayment * MORTGAGE_CONSTANTS.PAYMENTS_PER_YEAR[this.state.paymentFrequency] / 12;
+        // Monthly equivalent removed - not currently used in display
 
         return `
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -432,17 +461,17 @@ export class CalculatorModern {
         }
 
         return `
-            <div class="overflow-x-auto max-h-96 overflow-y-auto">
-                <table class="w-full text-sm min-w-[600px]">
+            <div class="overflow-x-auto max-h-96 overflow-y-auto" role="region" aria-label="Scenario comparison table" aria-live="polite">
+                <table class="w-full text-sm min-w-[600px]" role="table" aria-label="Mortgage scenario comparison">
                     <thead class="sticky top-0 bg-white dark:bg-gray-800 z-10">
                         <tr class="border-b border-gray-200 dark:border-gray-700">
-                            <th class="text-left py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Scenario</th>
-                            <th class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Payment</th>
-                            <th class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Interest</th>
-                            <th class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Total Cost</th>
-                            <th class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Time</th>
-                            <th class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Savings</th>
-                            <th class="text-center py-2 px-2 sm:px-3"></th>
+                            <th scope="col" class="text-left py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Scenario</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Payment</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Interest</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Total Cost</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Time</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Savings</th>
+                            <th scope="col" class="text-center py-2 px-2 sm:px-3"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -503,9 +532,10 @@ export class CalculatorModern {
             })()}
                                 </td>
                                 <td class="text-center py-2 px-2 sm:px-3">
-                                    <button class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-lg" 
-                                            onclick="window.removeScenario(${index})">
-                                        ✕
+                                    <button class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-lg focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                                            onclick="window.removeScenario(${index})"
+                                            aria-label="Remove scenario ${scenario.name}">
+                                        <span aria-hidden="true">✕</span>
                                     </button>
                                 </td>
                             </tr>
@@ -624,14 +654,33 @@ export class CalculatorModern {
     }
 
     performCalculations() {
+        this.isCalculating = true;
+
         // Validate inputs
         const validation = validateMortgageInputs(this.state);
         if (!validation.isValid) {
             this.result = null;
             this.prepaymentResult = null;
+            this.validationErrors = validation;
+            this.isCalculating = false;
+
+            // Show user-friendly error messages
+            if (validation.errorMessages && validation.errorMessages.length > 0) {
+                // Show first error message as notification
+                eventBus.emit(EVENTS.NOTIFICATION, {
+                    message: validation.errorMessages[0],
+                    type: 'error'
+                });
+            }
+
             this.updateResults();
+            this.updateValidationErrors(validation.fieldErrors);
             return;
         }
+
+        // Clear validation errors
+        this.validationErrors = null;
+        this.clearValidationErrors();
 
         try {
             // Main calculation
@@ -657,12 +706,66 @@ export class CalculatorModern {
                 result: this.result,
                 prepaymentResult: this.prepaymentResult,
             });
+
+            this.isCalculating = false;
         } catch (error) {
             logger.error('Calculation failed', error);
             this.result = null;
             this.prepaymentResult = null;
+            this.isCalculating = false;
             this.updateResults();
+
+            // Show user-friendly error
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'An error occurred during calculation. Please check your inputs and try again.',
+                type: 'error'
+            });
         }
+    }
+
+    updateValidationErrors(fieldErrors) {
+        // Update input fields with error states
+        if (fieldErrors) {
+            Object.keys(fieldErrors).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                const errorMessage = fieldErrors[fieldId];
+
+                if (field) {
+                    // Add error styling
+                    field.classList.add('border-red-500', 'dark:border-red-600');
+                    field.classList.remove('border-gray-300', 'dark:border-gray-600');
+
+                    // Add or update error message
+                    let errorDiv = field.parentElement.querySelector('.field-error');
+                    if (!errorDiv) {
+                        errorDiv = document.createElement('div');
+                        errorDiv.className = 'field-error text-xs text-red-600 dark:text-red-400 mt-1';
+                        errorDiv.setAttribute('role', 'alert');
+                        errorDiv.setAttribute('aria-live', 'polite');
+                        field.parentElement.appendChild(errorDiv);
+                    }
+                    errorDiv.textContent = errorMessage;
+                    errorDiv.setAttribute('aria-label', `Error: ${errorMessage}`);
+                }
+            });
+        }
+    }
+
+    clearValidationErrors() {
+        // Clear all error states
+        const fields = ['principal', 'interestRate', 'amortizationYears', 'paymentFrequency', 'extraPayment'];
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.classList.remove('border-red-500', 'dark:border-red-600');
+                field.classList.add('border-gray-300', 'dark:border-gray-600');
+
+                const errorDiv = field.parentElement.querySelector('.field-error');
+                if (errorDiv) {
+                    errorDiv.remove();
+                }
+            }
+        });
     }
 
     updateResults() {
@@ -713,14 +816,14 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios">
-                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                         Share
                       </button>
                     ` : ''}
-                    <button id="add-to-comparison" class="btn btn-primary btn-sm text-xs sm:text-sm">
+                    <button id="add-to-comparison" class="btn btn-primary btn-sm text-xs sm:text-sm" aria-label="Add current scenario to comparison">
                       + Add Current
                     </button>
                   </div>
@@ -821,7 +924,7 @@ export class CalculatorModern {
         if (!this.result) return;
 
         const baseScenario = this.scenarios.find(s => s.extraPaymentAmount === 0);
-        const baseTotalCost = baseScenario ? baseScenario.totalCost : this.result.totalCost;
+        // baseTotalCost removed - not currently used
 
         // Calculate total payment including extra
         let totalPayment = this.result.regularPayment;
