@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite",
         "prebuild": "node scripts/inject-version.js && node scripts/generate-icons.js",
-        "build": "npm run prebuild && vite build",
+        "build": "vite build",
         "preview": "vite preview",
         "test": "vitest",
         "test:ui": "vitest --ui",
