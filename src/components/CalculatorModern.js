@@ -13,10 +13,13 @@ import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
 import { evaluateExpression, isExpression } from '../utils/expressionEvaluator.js';
 import {
     generateShareableUrl,
+    generateShareMetadata,
+    shareWithNativeAPI,
     parseScenariosFromUrl,
     cleanUrl,
     copyToClipboard
 } from '../services/urlShareService.js';
+import html2canvas from 'html2canvas';
 
 export class CalculatorModern {
     constructor(containerId) {
@@ -39,6 +42,8 @@ export class CalculatorModern {
         this.result = null;
         this.prepaymentResult = null;
         this.scenarios = [];
+        this.validationErrors = null;
+        this.isCalculating = false;
 
         // Check for shared scenarios in URL
         this.loadSharedScenarios();
@@ -76,14 +81,11 @@ export class CalculatorModern {
                       min="1000"
                       max="${MORTGAGE_CONSTANTS.MAX_PRINCIPAL}"
                       step="1000"
-                      aria-describedby="principal-help principal-error"
-                      aria-invalid="false"
                       aria-label="Loan amount in dollars"
+                      aria-required="true"
                       class="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
-                  <p id="principal-help" class="sr-only">Enter the total loan amount between $1,000 and ${formatCAD(MORTGAGE_CONSTANTS.MAX_PRINCIPAL)}</p>
-                  <p id="principal-error" class="text-xs text-red-600 dark:text-red-400 mt-1 hidden" role="alert" aria-live="polite"></p>
                 </div>
 
                 <!-- Interest Rate & Amortization -->
@@ -101,20 +103,17 @@ export class CalculatorModern {
                         min="0.01"
                         max="30"
                         step="0.01"
-                        aria-describedby="interest-help interest-error"
-                        aria-invalid="false"
                         aria-label="Annual interest rate percentage"
+                        aria-required="true"
                         class="w-full pr-8 pl-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                       <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" aria-hidden="true">%</span>
                     </div>
-                    <p id="interest-help" class="sr-only">Enter annual interest rate between 0.01% and 30%</p>
-                    <p id="interest-error" class="text-xs text-red-600 dark:text-red-400 mt-1 hidden" role="alert" aria-live="polite"></p>
                   </div>
                   
                   <div>
                     <label for="amortizationYears" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
-                      Amortization <span class="text-xs font-normal text-gray-500">(years)</span>
+                      Amortization
                     </label>
                     <input
                       type="number"
@@ -125,13 +124,10 @@ export class CalculatorModern {
                       max="30"
                       step="1"
                       placeholder="Years"
-                      aria-describedby="amortization-help amortization-error"
-                      aria-invalid="false"
                       aria-label="Amortization period in years"
+                      aria-required="true"
                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
-                    <p id="amortization-help" class="sr-only">Enter amortization period between 1 and 30 years</p>
-                    <p id="amortization-error" class="text-xs text-red-600 dark:text-red-400 mt-1 hidden" role="alert" aria-live="polite"></p>
                   </div>
                 </div>
 
@@ -143,21 +139,20 @@ export class CalculatorModern {
                   <select 
                     id="paymentFrequency"
                     name="paymentFrequency"
-                    aria-describedby="frequency-help"
                     aria-label="Payment frequency"
+                    aria-required="true"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="weekly" ${this.state.paymentFrequency === 'weekly' ? 'selected' : ''}>Weekly (52/year)</option>
                     <option value="bi-weekly" ${this.state.paymentFrequency === 'bi-weekly' ? 'selected' : ''}>Bi-weekly (26/year)</option>
                     <option value="monthly" ${this.state.paymentFrequency === 'monthly' ? 'selected' : ''}>Monthly (12/year)</option>
                   </select>
-                  <p id="frequency-help" class="sr-only">Select how often you will make payments</p>
                 </div>
 
                 <!-- Divider -->
-                <div class="border-t border-gray-200 dark:border-gray-700 my-4" role="separator" aria-label="Prepayment options section"></div>
+                <div class="border-t border-gray-200 dark:border-gray-700 my-4"></div>
                 
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="prepayment-heading">Prepayment Options</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Prepayment Options</h3>
 
                 <!-- Extra Payment -->
                 <div>
@@ -172,19 +167,16 @@ export class CalculatorModern {
                       name="extraPayment"
                       value="${this.state.extraPaymentAmount || ''}"
                       placeholder="e.g., 100 or (1200/12)+50"
-                      aria-describedby="extra-help extra-error extra-warning"
-                      aria-invalid="false"
-                      aria-label="Extra payment amount or mathematical expression"
+                      aria-label="Extra payment amount or calculation expression"
+                      aria-describedby="extraPaymentHelp"
                       class="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
-                  <p id="extra-help" class="text-xs text-gray-500 mt-1">Enter amount or expression (e.g., 1200/12 or 50+25). Press Enter to calculate.</p>
-                  <p id="extra-error" class="text-xs text-red-600 dark:text-red-400 mt-1 hidden" role="alert" aria-live="polite"></p>
-                  <p id="extra-warning" class="text-xs text-yellow-600 dark:text-yellow-400 mt-1 hidden" role="alert" aria-live="polite"></p>
+                  <p id="extraPaymentHelp" class="text-xs text-gray-500 mt-1">Enter amount or expression (e.g., 1200/12 or 50+25). Press Enter to calculate.</p>
                   ${this.state.extraPaymentAmount < 0 ?
-                '<p class="text-xs text-red-600 dark:text-red-400 mt-1" id="extra-error-display" role="alert">Amount must be positive</p>' :
+                '<p class="text-xs text-red-600 dark:text-red-400 mt-1">Amount must be positive</p>' :
                 this.state.extraPaymentAmount > this.result?.regularPayment * 2 ?
-                    '<p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1" id="extra-warning-display" role="alert">Warning: Extra payment is very high</p>' :
+                    '<p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Warning: Extra payment is very high</p>' :
                     ''}
                 </div>
 
@@ -196,15 +188,13 @@ export class CalculatorModern {
                   <select 
                     id="extraPaymentFrequency"
                     name="extraPaymentFrequency"
-                    aria-describedby="extra-type-help"
-                    aria-label="How often to apply extra payment"
+                    aria-label="Extra payment frequency"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="per-payment">Each Payment</option>
                     <option value="annual">Annual Lump Sum</option>
                     <option value="one-time">One-time Payment</option>
                   </select>
-                  <p id="extra-type-help" class="sr-only">Select when to apply the extra payment</p>
                 </div>
               </div>
             </div>
@@ -216,14 +206,8 @@ export class CalculatorModern {
               <!-- Base Mortgage -->
               <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6">
                 <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-white">Base Mortgage</h3>
-                <div id="base-mortgage-results" role="region" aria-live="polite" aria-atomic="true">
+                <div id="base-mortgage-results">
                   ${this.renderMainResults()}
-                </div>
-                <div id="calculation-loading" class="hidden text-center py-4">
-                  <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" role="status" aria-label="Calculating">
-                    <span class="sr-only">Calculating...</span>
-                  </div>
-                  <p class="text-sm text-gray-500 mt-2">Calculating...</p>
                 </div>
               </div>
 
@@ -247,7 +231,13 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" aria-label="Share comparison scenarios via link" title="Share scenarios (Ctrl+S)">
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        📷 Screenshot
+                      </button>
+                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
@@ -271,7 +261,7 @@ export class CalculatorModern {
                 <button id="view-schedule" class="btn btn-secondary flex-1 text-sm sm:text-base" aria-label="View detailed amortization schedule">
                   View Amortization Schedule
                 </button>
-                <button id="reset" class="btn btn-secondary text-sm sm:text-base" aria-label="Reset calculator to default values (Ctrl+R)" title="Reset (Ctrl+R)">
+                <button id="reset" class="btn btn-secondary text-sm sm:text-base" aria-label="Reset calculator to default values">
                   Reset Calculator
                 </button>
               </div>
@@ -284,12 +274,26 @@ export class CalculatorModern {
 
     renderMainResults() {
         if (!this.result) {
+            if (this.validationErrors && this.validationErrors.isValid === false) {
+                return `
+        <div class="text-center py-8">
+          <div class="text-red-600 dark:text-red-400 mb-2" role="alert" aria-live="polite">
+            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="font-medium">Please fix the errors above to see results</p>
+          </div>
+        </div>
+      `;
+            }
             return `
         <div class="text-center py-8 text-gray-500">
           <p>Enter your mortgage details to see payment information</p>
         </div>
       `;
         }
+
+        // Monthly equivalent removed - not currently used in display
 
         return `
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -458,7 +462,7 @@ export class CalculatorModern {
     renderComparisonTable() {
         if (this.scenarios.length === 0) {
             return `
-                <div class="text-center py-8 text-gray-500" role="status" aria-live="polite">
+                <div class="text-center py-8 text-gray-500">
                     <p class="mb-2">No scenarios added yet.</p>
                     <p class="text-sm">Click "+ Add Current" to compare different prepayment strategies.</p>
                 </div>
@@ -466,17 +470,17 @@ export class CalculatorModern {
         }
 
         return `
-            <div class="overflow-x-auto max-h-96 overflow-y-auto" role="region" aria-label="Comparison table of mortgage scenarios">
+            <div class="overflow-x-auto max-h-96 overflow-y-auto" role="region" aria-label="Scenario comparison table" aria-live="polite">
                 <table class="w-full text-sm min-w-[600px]" role="table" aria-label="Mortgage scenario comparison">
                     <thead class="sticky top-0 bg-white dark:bg-gray-800 z-10">
                         <tr class="border-b border-gray-200 dark:border-gray-700">
                             <th scope="col" class="text-left py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Scenario</th>
-                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400" title="Payment amount per period">Payment</th>
-                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell" title="Total interest paid over loan term">Interest</th>
-                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400" title="Total amount paid including principal and interest">Total Cost</th>
-                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400" title="Time to pay off the mortgage">Time</th>
-                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400" title="Savings compared to base scenario">Savings</th>
-                            <th scope="col" class="text-center py-2 px-2 sm:px-3" aria-label="Remove scenario"><span class="sr-only">Actions</span></th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Payment</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Interest</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Total Cost</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Time</th>
+                            <th scope="col" class="text-right py-2 px-2 sm:px-3 text-xs font-medium text-gray-600 dark:text-gray-400">Savings</th>
+                            <th scope="col" class="text-center py-2 px-2 sm:px-3"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -495,7 +499,7 @@ export class CalculatorModern {
                                 </td>
                                 <td class="text-right py-2 px-2 sm:px-3 text-gray-900 dark:text-white whitespace-nowrap">
                                     <div class="text-xs sm:text-sm">${formatCAD(scenario.totalPayment)}</div>
-                                    <div class="text-xs text-gray-500" aria-label="Payment frequency">
+                                    <div class="text-xs text-gray-500">
                                         ${scenario.paymentFrequency === 'weekly' ? 'W' :
                 scenario.paymentFrequency === 'bi-weekly' ? 'B' : 'M'}
                                     </div>
@@ -507,7 +511,7 @@ export class CalculatorModern {
                                     <span class="text-xs sm:text-sm">${formatCAD(scenario.totalCost)}</span>
                                 </td>
                                 <td class="text-right py-2 px-2 sm:px-3 text-gray-900 dark:text-white whitespace-nowrap">
-                                    <span class="text-xs sm:text-sm" aria-label="${Math.floor(scenario.payoffMonths / 12)} years and ${scenario.payoffMonths % 12} months">
+                                    <span class="text-xs sm:text-sm">
                                         ${Math.floor(scenario.payoffMonths / 12)}y ${scenario.payoffMonths % 12}m
                                     </span>
                                 </td>
@@ -537,10 +541,9 @@ export class CalculatorModern {
             })()}
                                 </td>
                                 <td class="text-center py-2 px-2 sm:px-3">
-                                    <button 
-                                        class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded" 
-                                        onclick="window.removeScenario(${index})"
-                                        aria-label="Remove ${scenario.name} from comparison">
+                                    <button class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-lg focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                                            onclick="window.removeScenario(${index})"
+                                            aria-label="Remove scenario ${scenario.name}">
                                         <span aria-hidden="true">✕</span>
                                     </button>
                                 </td>
@@ -548,9 +551,6 @@ export class CalculatorModern {
                         `).join('')}
                     </tbody>
                 </table>
-                <div class="sm:hidden mt-2 px-2 text-xs text-gray-500 dark:text-gray-400">
-                    <p>💡 Swipe horizontally to see all columns</p>
-                </div>
             </div>
         `;
     }
@@ -565,7 +565,6 @@ export class CalculatorModern {
             if (element) {
                 element.addEventListener('input', (e) => {
                     this.handleInputChange(e);
-                    this.validateInput(id, e.target.value);
                     this.calculateAll();
                 });
 
@@ -609,40 +608,25 @@ export class CalculatorModern {
             this.scenarios.splice(index, 1);
             // Update the entire comparison section to show/hide share button
             this.updateComparisonSection();
-            // Re-attach share button listener after DOM update
+            // Re-attach button listeners after DOM update
             this.attachShareButtonListener();
+            this.attachScreenshotButtonListener();
         };
 
         // Share scenarios button
         this.attachShareButtonListener();
+
+        // Screenshot copy button
+        this.attachScreenshotButtonListener();
 
         const viewScheduleBtn = document.getElementById('view-schedule');
         if (viewScheduleBtn) {
             viewScheduleBtn.addEventListener('click', () => {
                 if (this.result) {
                     eventBus.emit('schedule:show', this.state);
-                } else {
-                    eventBus.emit(EVENTS.NOTIFICATION, {
-                        message: 'Please enter mortgage details first',
-                        type: 'info'
-                    });
                 }
             });
         }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            // Ctrl+R or Cmd+R: Reset
-            if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey && !e.altKey) {
-                e.preventDefault();
-                this.handleReset();
-            }
-            // Ctrl+S or Cmd+S: Share (when scenarios exist)
-            if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey && this.scenarios.length > 0) {
-                e.preventDefault();
-                this.shareScenarios();
-            }
-        });
     }
 
     handleInputChange(e) {
@@ -674,130 +658,6 @@ export class CalculatorModern {
         }
     }
 
-    validateInput(fieldId, value) {
-        const errorEl = document.getElementById(`${fieldId}-error`);
-        const inputEl = document.getElementById(fieldId);
-        
-        if (!errorEl || !inputEl) return;
-
-        let errorMessage = '';
-        
-        switch (fieldId) {
-            case 'principal': {
-                const principal = parseFloat(value) || 0;
-                if (principal < MORTGAGE_CONSTANTS.MIN_PRINCIPAL) {
-                    errorMessage = `Loan amount must be at least ${formatCAD(MORTGAGE_CONSTANTS.MIN_PRINCIPAL)}`;
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else if (principal > MORTGAGE_CONSTANTS.MAX_PRINCIPAL) {
-                    errorMessage = `Loan amount must not exceed ${formatCAD(MORTGAGE_CONSTANTS.MAX_PRINCIPAL)}`;
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else {
-                    inputEl.setAttribute('aria-invalid', 'false');
-                }
-                break;
-            }
-            case 'interestRate': {
-                const rate = parseFloat(value) || 0;
-                if (rate < 0.01) {
-                    errorMessage = 'Interest rate must be at least 0.01%';
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else if (rate > 30) {
-                    errorMessage = 'Interest rate must not exceed 30%';
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else {
-                    inputEl.setAttribute('aria-invalid', 'false');
-                }
-                break;
-            }
-            case 'amortizationYears': {
-                const years = parseInt(value) || 0;
-                if (years < 1) {
-                    errorMessage = 'Amortization must be at least 1 year';
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else if (years > 30) {
-                    errorMessage = 'Amortization must not exceed 30 years';
-                    inputEl.setAttribute('aria-invalid', 'true');
-                } else {
-                    inputEl.setAttribute('aria-invalid', 'false');
-                }
-                break;
-            }
-        }
-
-        if (errorMessage) {
-            errorEl.textContent = errorMessage;
-            errorEl.classList.remove('hidden');
-        } else {
-            errorEl.classList.add('hidden');
-            errorEl.textContent = '';
-        }
-    }
-
-    updateValidationErrors(validation) {
-        // Map validation errors to fields and display them
-        validation.errors.forEach(errorCode => {
-            let fieldId = '';
-            let message = '';
-            
-            switch (errorCode) {
-                case 'PRINCIPAL_TOO_LOW':
-                    fieldId = 'principal';
-                    message = `Loan amount must be at least ${formatCAD(MORTGAGE_CONSTANTS.MIN_PRINCIPAL)}`;
-                    break;
-                case 'PRINCIPAL_TOO_HIGH':
-                    fieldId = 'principal';
-                    message = `Loan amount must not exceed ${formatCAD(MORTGAGE_CONSTANTS.MAX_PRINCIPAL)}`;
-                    break;
-                case 'RATE_TOO_LOW':
-                    fieldId = 'interestRate';
-                    message = 'Interest rate must be at least 0.01%';
-                    break;
-                case 'RATE_TOO_HIGH':
-                    fieldId = 'interestRate';
-                    message = 'Interest rate must not exceed 30%';
-                    break;
-                case 'TERM_TOO_SHORT':
-                    fieldId = 'amortizationYears';
-                    message = 'Amortization must be at least 1 year';
-                    break;
-                case 'TERM_TOO_LONG_CONVENTIONAL':
-                case 'TERM_TOO_LONG_HIGH_RATIO':
-                    fieldId = 'amortizationYears';
-                    message = 'Amortization must not exceed 30 years for conventional mortgages';
-                    break;
-            }
-
-            if (fieldId) {
-                const errorEl = document.getElementById(`${fieldId}-error`);
-                const inputEl = document.getElementById(fieldId);
-                
-                if (errorEl) {
-                    errorEl.textContent = message;
-                    errorEl.classList.remove('hidden');
-                }
-                if (inputEl) {
-                    inputEl.setAttribute('aria-invalid', 'true');
-                }
-            }
-        });
-    }
-
-    clearValidationErrors() {
-        const errorFields = ['principal', 'interestRate', 'amortizationYears'];
-        errorFields.forEach(fieldId => {
-            const errorEl = document.getElementById(`${fieldId}-error`);
-            const inputEl = document.getElementById(fieldId);
-            
-            if (errorEl) {
-                errorEl.classList.add('hidden');
-                errorEl.textContent = '';
-            }
-            if (inputEl) {
-                inputEl.setAttribute('aria-invalid', 'false');
-            }
-        });
-    }
-
     calculateAll() {
         // Debounce calculations
         clearTimeout(this.calculationTimeout);
@@ -807,67 +667,116 @@ export class CalculatorModern {
     }
 
     performCalculations() {
-        // Show loading state
-        const loadingEl = document.getElementById('calculation-loading');
-        const resultsEl = document.getElementById('base-mortgage-results');
-        if (loadingEl && resultsEl) {
-            loadingEl.classList.remove('hidden');
-            resultsEl.setAttribute('aria-busy', 'true');
-        }
+        this.isCalculating = true;
 
         // Validate inputs
         const validation = validateMortgageInputs(this.state);
         if (!validation.isValid) {
             this.result = null;
             this.prepaymentResult = null;
-            this.updateValidationErrors(validation);
-            if (loadingEl) loadingEl.classList.add('hidden');
-            if (resultsEl) resultsEl.setAttribute('aria-busy', 'false');
+            this.validationErrors = validation;
+            this.isCalculating = false;
+
+            // Show user-friendly error messages
+            if (validation.errorMessages && validation.errorMessages.length > 0) {
+                // Show first error message as notification
+                eventBus.emit(EVENTS.NOTIFICATION, {
+                    message: validation.errorMessages[0],
+                    type: 'error'
+                });
+            }
+
             this.updateResults();
+            this.updateValidationErrors(validation.fieldErrors);
             return;
         }
 
         // Clear validation errors
+        this.validationErrors = null;
         this.clearValidationErrors();
 
-        // Use requestAnimationFrame to allow UI to update before heavy calculation
-        requestAnimationFrame(() => {
-            try {
-                // Main calculation
-                this.result = calculateMortgage(this.state);
+        try {
+            // Main calculation
+            this.result = calculateMortgage(this.state);
 
-                // Prepayment calculation
-                if (this.state.extraPaymentAmount > 0) {
-                    this.prepaymentResult = calculateWithPrepayment({
-                        ...this.state,
-                        extraPayment: this.state.extraPaymentAmount,
-                        extraPaymentFrequency: this.state.extraPaymentFrequency,
-                    });
-                } else {
-                    this.prepaymentResult = null;
-                }
-
-                // Update only the results sections
-                this.updateResults();
-
-                // Hide loading state
-                if (loadingEl) loadingEl.classList.add('hidden');
-                if (resultsEl) resultsEl.setAttribute('aria-busy', 'false');
-
-                // Emit events
-                eventBus.emit(EVENTS.CALCULATION_COMPLETE, {
-                    inputs: this.state,
-                    result: this.result,
-                    prepaymentResult: this.prepaymentResult,
+            // Prepayment calculation
+            if (this.state.extraPaymentAmount > 0) {
+                this.prepaymentResult = calculateWithPrepayment({
+                    ...this.state,
+                    extraPayment: this.state.extraPaymentAmount,
+                    extraPaymentFrequency: this.state.extraPaymentFrequency,
                 });
-            } catch (error) {
-                logger.error('Calculation failed', error);
-                this.result = null;
+            } else {
                 this.prepaymentResult = null;
-                if (loadingEl) loadingEl.classList.add('hidden');
-                if (resultsEl) resultsEl.setAttribute('aria-busy', 'false');
-                this.updateResults();
-                eventBus.emit(EVENTS.ERROR_OCCURRED, error);
+            }
+
+            // Update only the results sections
+            this.updateResults();
+
+            // Emit events
+            eventBus.emit(EVENTS.CALCULATION_COMPLETE, {
+                inputs: this.state,
+                result: this.result,
+                prepaymentResult: this.prepaymentResult,
+            });
+
+            this.isCalculating = false;
+        } catch (error) {
+            logger.error('Calculation failed', error);
+            this.result = null;
+            this.prepaymentResult = null;
+            this.isCalculating = false;
+            this.updateResults();
+
+            // Show user-friendly error
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'An error occurred during calculation. Please check your inputs and try again.',
+                type: 'error'
+            });
+        }
+    }
+
+    updateValidationErrors(fieldErrors) {
+        // Update input fields with error states
+        if (fieldErrors) {
+            Object.keys(fieldErrors).forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                const errorMessage = fieldErrors[fieldId];
+
+                if (field) {
+                    // Add error styling
+                    field.classList.add('border-red-500', 'dark:border-red-600');
+                    field.classList.remove('border-gray-300', 'dark:border-gray-600');
+
+                    // Add or update error message
+                    let errorDiv = field.parentElement.querySelector('.field-error');
+                    if (!errorDiv) {
+                        errorDiv = document.createElement('div');
+                        errorDiv.className = 'field-error text-xs text-red-600 dark:text-red-400 mt-1';
+                        errorDiv.setAttribute('role', 'alert');
+                        errorDiv.setAttribute('aria-live', 'polite');
+                        field.parentElement.appendChild(errorDiv);
+                    }
+                    errorDiv.textContent = errorMessage;
+                    errorDiv.setAttribute('aria-label', `Error: ${errorMessage}`);
+                }
+            });
+        }
+    }
+
+    clearValidationErrors() {
+        // Clear all error states
+        const fields = ['principal', 'interestRate', 'amortizationYears', 'paymentFrequency', 'extraPayment'];
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.classList.remove('border-red-500', 'dark:border-red-600');
+                field.classList.add('border-gray-300', 'dark:border-gray-600');
+
+                const errorDiv = field.parentElement.querySelector('.field-error');
+                if (errorDiv) {
+                    errorDiv.remove();
+                }
             }
         });
     }
@@ -920,7 +829,13 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" aria-label="Share comparison scenarios via link" title="Share scenarios (Ctrl+S)">
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        📷 Screenshot
+                      </button>
+                      <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
@@ -938,6 +853,10 @@ export class CalculatorModern {
                   </div>
                 </div>
             `;
+            
+            // Re-attach button listeners after DOM update
+            this.attachShareButtonListener();
+            this.attachScreenshotButtonListener();
 
             // Re-attach add to comparison listener
             const addBtn = document.getElementById('add-to-comparison');
@@ -1027,6 +946,9 @@ export class CalculatorModern {
     addToComparison() {
         if (!this.result) return;
 
+        const baseScenario = this.scenarios.find(s => s.extraPaymentAmount === 0);
+        // baseTotalCost removed - not currently used
+
         // Calculate total payment including extra
         let totalPayment = this.result.regularPayment;
         if (this.state.extraPaymentAmount > 0 && this.state.extraPaymentFrequency === 'per-payment') {
@@ -1111,8 +1033,9 @@ export class CalculatorModern {
                 type: 'success'
             });
 
-            // Re-attach share button listener after DOM update
+            // Re-attach button listeners after DOM update
             this.attachShareButtonListener();
+            this.attachScreenshotButtonListener();
         } else {
             eventBus.emit(EVENTS.NOTIFICATION, {
                 message: 'This scenario already exists in comparison',
@@ -1236,6 +1159,13 @@ export class CalculatorModern {
         }
     }
 
+    attachScreenshotButtonListener() {
+        const screenshotBtn = document.getElementById('copy-screenshot');
+        if (screenshotBtn) {
+            screenshotBtn.addEventListener('click', () => this.copyTableScreenshot());
+        }
+    }
+
     async shareScenarios() {
         if (this.scenarios.length === 0) {
             eventBus.emit(EVENTS.NOTIFICATION, {
@@ -1247,21 +1177,343 @@ export class CalculatorModern {
 
         try {
             const shareableUrl = generateShareableUrl(this.scenarios);
+
+            // Try Web Share API first (mobile/desktop native sharing)
+            const shared = await shareWithNativeAPI(this.scenarios);
+            if (shared) {
+                // User either shared successfully or cancelled (both are fine)
+                return;
+            }
+
+            // Fallback: Copy to clipboard
             const copied = await copyToClipboard(shareableUrl);
 
             if (copied) {
                 eventBus.emit(EVENTS.NOTIFICATION, {
-                    message: 'Share link copied to clipboard!',
+                    message: 'Link copied to clipboard! Paste it anywhere to share.',
                     type: 'success'
                 });
             } else {
-                // Fallback: show the URL in a prompt
-                prompt('Copy this link to share:', shareableUrl);
+                // Last resort: Show share modal with URL
+                this.showShareModal(shareableUrl);
             }
         } catch (error) {
             logger.error('Failed to generate share link:', error);
+            
+            // Even on error, try to show the modal with the URL
+            try {
+                const shareableUrl = generateShareableUrl(this.scenarios);
+                this.showShareModal(shareableUrl);
+            } catch (fallbackError) {
+                eventBus.emit(EVENTS.NOTIFICATION, {
+                    message: 'Failed to generate share link. Please try again.',
+                    type: 'error'
+                });
+            }
+        }
+    }
+
+    showShareModal(url) {
+        // Create or update share modal
+        let modal = document.getElementById('share-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'share-modal';
+            modal.className = 'fixed inset-0 z-50 hidden';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'share-modal-title');
+            document.body.appendChild(modal);
+        }
+
+        const metadata = generateShareMetadata(this.scenarios);
+        modal.innerHTML = `
+            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="share-modal-backdrop" aria-hidden="true"></div>
+            <div class="fixed inset-0 z-10 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4">
+                    <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                        <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <h3 id="share-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Share Comparison
+                                </h3>
+                                <button id="share-modal-close" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none" aria-label="Close share modal">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Copy this link to share your ${this.scenarios.length} scenario${this.scenarios.length > 1 ? 's' : ''}:
+                            </p>
+                            
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        id="share-url-input" 
+                                        readonly 
+                                        value="${url}" 
+                                        class="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 border-none outline-none"
+                                        aria-label="Share URL"
+                                    />
+                                    <button 
+                                        id="share-copy-btn" 
+                                        class="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                        aria-label="Copy URL"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button 
+                                    id="share-native-btn" 
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    ${!navigator.share ? 'disabled' : ''}
+                                    aria-label="Share using native sharing"
+                                >
+                                    ${navigator.share ? '📤 Share' : 'Native sharing not available'}
+                                </button>
+                                <button 
+                                    id="share-modal-close-btn" 
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-lg"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+        // Focus trap
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        function trapFocus(e) {
+            if (e.key === 'Tab') {
+                if (e.shiftKey && document.activeElement === firstElement) {
+                    e.preventDefault();
+                    lastElement.focus();
+                } else if (!e.shiftKey && document.activeElement === lastElement) {
+                    e.preventDefault();
+                    firstElement.focus();
+                }
+            }
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        }
+
+        modal.addEventListener('keydown', trapFocus);
+        if (firstElement) firstElement.focus();
+
+        // Event listeners
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            modal.removeEventListener('keydown', trapFocus);
+        };
+
+        document.getElementById('share-modal-close')?.addEventListener('click', closeModal);
+        document.getElementById('share-modal-close-btn')?.addEventListener('click', closeModal);
+        document.getElementById('share-modal-backdrop')?.addEventListener('click', closeModal);
+
+        // Copy button
+        const copyBtn = document.getElementById('share-copy-btn');
+        const urlInput = document.getElementById('share-url-input');
+        if (copyBtn && urlInput) {
+            copyBtn.addEventListener('click', async () => {
+                urlInput.select();
+                urlInput.setSelectionRange(0, 99999); // For mobile
+                const copied = await copyToClipboard(url);
+                if (copied) {
+                    copyBtn.textContent = '✓ Copied!';
+                    copyBtn.classList.add('text-green-600', 'dark:text-green-400');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.classList.remove('text-green-600', 'dark:text-green-400');
+                    }, 2000);
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Link copied to clipboard!',
+                        type: 'success'
+                    });
+                }
+            });
+        }
+
+        // Native share button
+        const nativeShareBtn = document.getElementById('share-native-btn');
+        if (nativeShareBtn && navigator.share) {
+            nativeShareBtn.addEventListener('click', async () => {
+                try {
+                    await shareWithNativeAPI(this.scenarios);
+                    closeModal();
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        logger.error('Native share failed:', error);
+                        eventBus.emit(EVENTS.NOTIFICATION, {
+                            message: 'Sharing failed. Try copying the link instead.',
+                            type: 'error'
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    async copyTableScreenshot() {
+        if (this.scenarios.length === 0) {
             eventBus.emit(EVENTS.NOTIFICATION, {
-                message: 'Failed to generate share link',
+                message: 'No scenarios to capture',
+                type: 'info'
+            });
+            return;
+        }
+
+        try {
+            // Show loading state
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Generating screenshot...',
+                type: 'info'
+            });
+
+            // Get the table container
+            const tableContainer = document.querySelector('#inline-comparison-table');
+            if (!tableContainer) {
+                throw new Error('Comparison table not found');
+            }
+
+            // Clone the table for clean capture (without buttons, scrollbars)
+            const clone = tableContainer.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = '-9999px';
+            clone.style.width = tableContainer.offsetWidth + 'px';
+            clone.style.backgroundColor = document.documentElement.classList.contains('dark') 
+                ? '#1f2937' 
+                : '#ffffff';
+            clone.style.padding = '20px';
+            clone.style.borderRadius = '8px';
+
+            // Remove scrollbars and hidden elements
+            const scrollableDiv = clone.querySelector('.overflow-x-auto');
+            if (scrollableDiv) {
+                scrollableDiv.style.overflow = 'visible';
+                scrollableDiv.style.maxHeight = 'none';
+                scrollableDiv.style.height = 'auto';
+            }
+            
+            // Also handle nested overflow containers
+            clone.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-auto').forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.maxHeight = 'none';
+                el.style.height = 'auto';
+            });
+
+            // Remove all buttons and action elements
+            clone.querySelectorAll('button').forEach(btn => btn.remove());
+
+            // Remove the actions column header
+            const actionHeaders = clone.querySelectorAll('th');
+            actionHeaders.forEach(th => {
+                if (th.textContent.trim() === '' || th.querySelector('.sr-only')) {
+                    th.remove();
+                }
+            });
+
+            // Remove action cells from table rows (last column with delete buttons)
+            const tableRows = clone.querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                // Remove the last cell (actions column) if it exists
+                if (cells.length > 0) {
+                    const lastCell = cells[cells.length - 1];
+                    // Check if it's likely the actions column (text-center class)
+                    if (lastCell && lastCell.classList.contains('text-center')) {
+                        lastCell.remove();
+                    }
+                }
+            });
+
+            // Add website link at the bottom
+            const websiteLink = document.createElement('div');
+            websiteLink.style.marginTop = '20px';
+            websiteLink.style.paddingTop = '15px';
+            websiteLink.style.borderTop = '1px solid ' + (document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb');
+            websiteLink.style.textAlign = 'center';
+            websiteLink.style.fontSize = '12px';
+            websiteLink.style.fontWeight = '500';
+            websiteLink.style.color = document.documentElement.classList.contains('dark') 
+                ? '#9ca3af' 
+                : '#6b7280';
+            
+            // Get website URL from current location
+            try {
+                const baseUrl = import.meta.env?.BASE_URL || '/';
+                const websiteUrl = window.location.origin + baseUrl.replace(/\/$/, '');
+                websiteLink.textContent = websiteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            } catch (e) {
+                // Fallback to simple domain extraction
+                const domain = window.location.hostname;
+                websiteLink.textContent = domain;
+            }
+            clone.appendChild(websiteLink);
+
+            // Append to body temporarily
+            document.body.appendChild(clone);
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(clone, {
+                backgroundColor: document.documentElement.classList.contains('dark') 
+                    ? '#1f2937' 
+                    : '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true,
+                allowTaint: false,
+            });
+
+            // Clean up
+            document.body.removeChild(clone);
+
+            // Convert to blob and copy to clipboard
+            canvas.toBlob(async (blob) => {
+                try {
+                    const item = new ClipboardItem({ 'image/png': blob });
+                    await navigator.clipboard.write([item]);
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot copied to clipboard!',
+                        type: 'success'
+                    });
+                } catch (error) {
+                    // Fallback: download the image
+                    const url = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'mortgage-comparison.png';
+                    link.href = url;
+                    link.click();
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot downloaded (clipboard not supported)',
+                        type: 'info'
+                    });
+                }
+            }, 'image/png');
+
+        } catch (error) {
+            logger.error('Failed to capture screenshot:', error);
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Failed to capture screenshot',
                 type: 'error'
             });
         }

@@ -6,16 +6,16 @@ test.describe('Comparison Flow', () => {
     });
 
     test('should add scenario to comparison table', async ({ page }) => {
-        // Wait for calculator to load
-        await page.waitForSelector('#principal', { state: 'visible' });
-
         // Fill out calculator
         await page.fill('#principal', '500000');
         await page.fill('#interestRate', '5.25');
         await page.fill('#amortizationYears', '25');
 
-        // Wait for calculations to complete
+        // Wait for calculation (debounced)
         await page.waitForTimeout(500);
+
+        // Wait for results
+        await page.waitForSelector('#base-mortgage-results', { state: 'visible' });
 
         // Add to comparison
         await page.click('#add-to-comparison');
@@ -23,9 +23,8 @@ test.describe('Comparison Flow', () => {
         // Wait for comparison table to update
         await page.waitForTimeout(300);
 
-        // Verify comparison table appears (checking for scenario comparison section)
-        const comparisonSection = page.locator('text=Scenario Comparison');
-        await expect(comparisonSection).toBeVisible();
+        // Verify comparison table appears
+        await expect(page.locator('#inline-comparison-table')).toBeVisible();
     });
 
     test('should display multiple scenarios in comparison', async ({ page }) => {
