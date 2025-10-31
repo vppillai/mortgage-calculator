@@ -13,17 +13,50 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
-// Get git version
+// Get git version - prioritize exact tag match for releases
 let gitVersion = 'unknown';
 let gitCommit = 'unknown';
 let gitCommitShort = 'unknown';
+let isRelease = false;
 
 try {
-    gitVersion = execSync('git describe --always --tags --dirty', { 
-        cwd: rootDir,
-        encoding: 'utf-8',
-        stdio: 'pipe'
-    }).trim();
+    // First, check if we're exactly on a tag (release version)
+    try {
+        const exactTag = execSync('git describe --exact-match --tags HEAD', { 
+            cwd: rootDir,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+        }).trim();
+        gitVersion = exactTag;
+        isRelease = true;
+    } catch (e) {
+        // Not on exact tag, use describe with fallback
+        gitVersion = execSync('git describe --always --tags --dirty', { 
+            cwd: rootDir,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+        }).trim();
+        
+        // Check if version starts with a tag (e.g., "v1.1.0-2-gabc123")
+        // If it does, extract just the tag part for cleaner display
+        const tagMatch = gitVersion.match(/^(v?\d+\.\d+\.\d+)/);
+        if (tagMatch) {
+            // We're close to a tag, but not exactly on it
+            gitVersion = gitVersion; // Keep full describe for dev builds
+        }
+    }
+    
+    // Get commit info for reference
+    try {
+        gitCommit = execSync('git rev-parse HEAD', { 
+            cwd: rootDir,
+            encoding: 'utf-8',
+            stdio: 'pipe'
+        }).trim();
+        gitCommitShort = gitCommit.substring(0, 7);
+    } catch (e) {
+        // Ignore commit fetch errors
+    }
 } catch (e) {
     // Try alternative methods
     try {
@@ -55,6 +88,7 @@ const buildTimeLocal = new Date().toLocaleString('en-US', {
 // Create version info object
 const versionInfo = {
     version: gitVersion,
+    isRelease: isRelease,
     commit: gitCommit !== 'unknown' ? gitCommit : undefined,
     commitShort: gitCommitShort !== 'unknown' ? gitCommitShort : undefined,
     buildTime: buildTime,
@@ -72,7 +106,7 @@ const versionJsFile = join(publicDir, 'version.js');
 writeFileSync(versionJsFile, `export default ${JSON.stringify(versionInfo, null, 2)};`, 'utf-8');
 
 console.log('✅ Version info injected:');
-console.log(`   Version: ${gitVersion}`);
+console.log(`   Version: ${gitVersion}${isRelease ? ' (Release)' : ''}`);
 console.log(`   Build Time: ${buildTimeLocal}`);
 
 export default versionInfo;

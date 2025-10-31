@@ -17,6 +17,7 @@ import {
     cleanUrl,
     copyToClipboard
 } from '../services/urlShareService.js';
+import html2canvas from 'html2canvas';
 
 export class CalculatorModern {
     constructor(containerId) {
@@ -228,6 +229,12 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        📷 Screenshot
+                      </button>
                       <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -599,12 +606,16 @@ export class CalculatorModern {
             this.scenarios.splice(index, 1);
             // Update the entire comparison section to show/hide share button
             this.updateComparisonSection();
-            // Re-attach share button listener after DOM update
+            // Re-attach button listeners after DOM update
             this.attachShareButtonListener();
+            this.attachScreenshotButtonListener();
         };
 
         // Share scenarios button
         this.attachShareButtonListener();
+
+        // Screenshot copy button
+        this.attachScreenshotButtonListener();
 
         const viewScheduleBtn = document.getElementById('view-schedule');
         if (viewScheduleBtn) {
@@ -816,6 +827,12 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        📷 Screenshot
+                      </button>
                       <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1135,6 +1152,13 @@ export class CalculatorModern {
         }
     }
 
+    attachScreenshotButtonListener() {
+        const screenshotBtn = document.getElementById('copy-screenshot');
+        if (screenshotBtn) {
+            screenshotBtn.addEventListener('click', () => this.copyTableScreenshot());
+        }
+    }
+
     async shareScenarios() {
         if (this.scenarios.length === 0) {
             eventBus.emit(EVENTS.NOTIFICATION, {
@@ -1161,6 +1185,154 @@ export class CalculatorModern {
             logger.error('Failed to generate share link:', error);
             eventBus.emit(EVENTS.NOTIFICATION, {
                 message: 'Failed to generate share link',
+                type: 'error'
+            });
+        }
+    }
+
+    async copyTableScreenshot() {
+        if (this.scenarios.length === 0) {
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'No scenarios to capture',
+                type: 'info'
+            });
+            return;
+        }
+
+        try {
+            // Show loading state
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Generating screenshot...',
+                type: 'info'
+            });
+
+            // Get the table container
+            const tableContainer = document.querySelector('#inline-comparison-table');
+            if (!tableContainer) {
+                throw new Error('Comparison table not found');
+            }
+
+            // Clone the table for clean capture (without buttons, scrollbars)
+            const clone = tableContainer.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = '-9999px';
+            clone.style.width = tableContainer.offsetWidth + 'px';
+            clone.style.backgroundColor = document.documentElement.classList.contains('dark') 
+                ? '#1f2937' 
+                : '#ffffff';
+            clone.style.padding = '20px';
+            clone.style.borderRadius = '8px';
+
+            // Remove scrollbars and hidden elements
+            const scrollableDiv = clone.querySelector('.overflow-x-auto');
+            if (scrollableDiv) {
+                scrollableDiv.style.overflow = 'visible';
+                scrollableDiv.style.maxHeight = 'none';
+                scrollableDiv.style.height = 'auto';
+            }
+            
+            // Also handle nested overflow containers
+            clone.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-auto').forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.maxHeight = 'none';
+                el.style.height = 'auto';
+            });
+
+            // Remove all buttons and action elements
+            clone.querySelectorAll('button').forEach(btn => btn.remove());
+
+            // Remove the actions column header
+            const actionHeaders = clone.querySelectorAll('th');
+            actionHeaders.forEach(th => {
+                if (th.textContent.trim() === '' || th.querySelector('.sr-only')) {
+                    th.remove();
+                }
+            });
+
+            // Remove action cells from table rows (last column with delete buttons)
+            const tableRows = clone.querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                // Remove the last cell (actions column) if it exists
+                if (cells.length > 0) {
+                    const lastCell = cells[cells.length - 1];
+                    // Check if it's likely the actions column (text-center class)
+                    if (lastCell && lastCell.classList.contains('text-center')) {
+                        lastCell.remove();
+                    }
+                }
+            });
+
+            // Add website link at the bottom
+            const websiteLink = document.createElement('div');
+            websiteLink.style.marginTop = '20px';
+            websiteLink.style.paddingTop = '15px';
+            websiteLink.style.borderTop = '1px solid ' + (document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb');
+            websiteLink.style.textAlign = 'center';
+            websiteLink.style.fontSize = '12px';
+            websiteLink.style.fontWeight = '500';
+            websiteLink.style.color = document.documentElement.classList.contains('dark') 
+                ? '#9ca3af' 
+                : '#6b7280';
+            
+            // Get website URL from current location
+            try {
+                const baseUrl = import.meta.env?.BASE_URL || '/';
+                const websiteUrl = window.location.origin + baseUrl.replace(/\/$/, '');
+                websiteLink.textContent = websiteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            } catch (e) {
+                // Fallback to simple domain extraction
+                const domain = window.location.hostname;
+                websiteLink.textContent = domain;
+            }
+            clone.appendChild(websiteLink);
+
+            // Append to body temporarily
+            document.body.appendChild(clone);
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(clone, {
+                backgroundColor: document.documentElement.classList.contains('dark') 
+                    ? '#1f2937' 
+                    : '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true,
+                allowTaint: false,
+            });
+
+            // Clean up
+            document.body.removeChild(clone);
+
+            // Convert to blob and copy to clipboard
+            canvas.toBlob(async (blob) => {
+                try {
+                    const item = new ClipboardItem({ 'image/png': blob });
+                    await navigator.clipboard.write([item]);
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot copied to clipboard!',
+                        type: 'success'
+                    });
+                } catch (error) {
+                    // Fallback: download the image
+                    const url = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'mortgage-comparison.png';
+                    link.href = url;
+                    link.click();
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot downloaded (clipboard not supported)',
+                        type: 'info'
+                    });
+                }
+            }, 'image/png');
+
+        } catch (error) {
+            logger.error('Failed to capture screenshot:', error);
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Failed to capture screenshot',
                 type: 'error'
             });
         }

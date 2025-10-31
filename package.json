@@ -16,7 +16,8 @@
         "format": "prettier --write \"src/**/*.{js,css,html}\""
     },
     "dependencies": {
-        "decimal.js": "^10.4.3"
+        "decimal.js": "^10.4.3",
+        "html2canvas": "^1.4.1"
     },
     "devDependencies": {
         "@playwright/test": "^1.40.1",
