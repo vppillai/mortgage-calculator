@@ -75,6 +75,7 @@ export function calculateMortgage(params) {
  * @returns {Array} Payment schedule
  */
 export function generateAmortizationSchedule(params) {
+    // eslint-disable-next-line no-unused-vars
     const { principal, interestRate, amortizationMonths, paymentFrequency } = params;
 
     const result = calculateMortgage(params);
