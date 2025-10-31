@@ -14,7 +14,11 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
-            use: { ...devices['Desktop Chrome'] },
+            use: {
+                ...devices['Desktop Chrome'],
+                // Enable touch support for mobile tests
+                hasTouch: true,
+            },
         },
         {
             name: 'firefox',

@@ -35,8 +35,8 @@ test.describe('Mobile Responsiveness', () => {
         await page.setViewportSize({ width: 375, height: 667 });
         await page.goto('/');
 
-        // Test theme toggle with tap
-        await page.tap('#theme-toggle');
+        // Test theme toggle with click (works on mobile and desktop)
+        await page.click('#theme-toggle');
         await page.waitForTimeout(300);
 
         const htmlClasses = await page.locator('html').getAttribute('class');
