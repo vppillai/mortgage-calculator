@@ -13,6 +13,7 @@ import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
 import { evaluateExpression, isExpression } from '../utils/expressionEvaluator.js';
 import {
     generateShareableUrl,
+    generateShareMetadata,
     shareWithNativeAPI,
     parseScenariosFromUrl,
     cleanUrl,
@@ -230,11 +231,11 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy or share table screenshot" aria-label="Copy or share comparison table as image">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        📷 Screenshot
+                        Screenshot
                       </button>
                       <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -828,11 +829,11 @@ export class CalculatorModern {
                   </h3>
                   <div class="flex gap-2">
                     ${this.scenarios.length > 0 ? `
-                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy table screenshot to clipboard" aria-label="Copy comparison table as image">
+                      <button id="copy-screenshot" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Copy or share table screenshot" aria-label="Copy or share comparison table as image">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        📷 Screenshot
+                        Screenshot
                       </button>
                       <button id="share-scenarios" class="btn btn-secondary btn-sm text-xs sm:text-sm" title="Share scenarios" aria-label="Share scenarios via link">
                         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -945,6 +946,8 @@ export class CalculatorModern {
     addToComparison() {
         if (!this.result) return;
 
+        const baseScenario = this.scenarios.find(s => s.extraPaymentAmount === 0);
+        // baseTotalCost removed - not currently used
 
         // Calculate total payment including extra
         let totalPayment = this.result.regularPayment;
@@ -1223,6 +1226,7 @@ export class CalculatorModern {
             document.body.appendChild(modal);
         }
 
+        const metadata = generateShareMetadata(this.scenarios);
         modal.innerHTML = `
             <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="share-modal-backdrop" aria-hidden="true"></div>
             <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -1481,27 +1485,61 @@ export class CalculatorModern {
             // Clean up
             document.body.removeChild(clone);
 
-            // Convert to blob and copy to clipboard
+            // Convert to blob and share/copy
             canvas.toBlob(async (blob) => {
                 try {
-                    const item = new ClipboardItem({ 'image/png': blob });
-                    await navigator.clipboard.write([item]);
+                    // On mobile, use Web Share API with the image file
+                    if (navigator.share && navigator.canShare && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                        const file = new File([blob], 'mortgage-comparison.png', { type: 'image/png' });
+                        
+                        if (navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({
+                                    files: [file],
+                                    title: 'Mortgage Comparison',
+                                    text: 'Check out my mortgage comparison scenarios'
+                                });
+                                eventBus.emit(EVENTS.NOTIFICATION, {
+                                    message: 'Screenshot shared!',
+                                    type: 'success'
+                                });
+                                return;
+                            } catch (shareError) {
+                                // User cancelled or share failed, fall through to clipboard
+                                if (shareError.name !== 'AbortError') {
+                                    logger.debug('Web Share API failed, falling back to clipboard:', shareError);
+                                }
+                            }
+                        }
+                    }
 
-                    eventBus.emit(EVENTS.NOTIFICATION, {
-                        message: 'Screenshot copied to clipboard!',
-                        type: 'success'
-                    });
+                    // Desktop or fallback: Copy to clipboard
+                    try {
+                        const item = new ClipboardItem({ 'image/png': blob });
+                        await navigator.clipboard.write([item]);
+
+                        eventBus.emit(EVENTS.NOTIFICATION, {
+                            message: 'Screenshot copied to clipboard!',
+                            type: 'success'
+                        });
+                    } catch (clipboardError) {
+                        // Clipboard API not supported, download instead
+                        const url = canvas.toDataURL('image/png');
+                        const link = document.createElement('a');
+                        link.download = 'mortgage-comparison.png';
+                        link.href = url;
+                        link.click();
+
+                        eventBus.emit(EVENTS.NOTIFICATION, {
+                            message: 'Screenshot downloaded',
+                            type: 'info'
+                        });
+                    }
                 } catch (error) {
-                    // Fallback: download the image
-                    const url = canvas.toDataURL('image/png');
-                    const link = document.createElement('a');
-                    link.download = 'mortgage-comparison.png';
-                    link.href = url;
-                    link.click();
-
+                    logger.error('Failed to share/copy screenshot:', error);
                     eventBus.emit(EVENTS.NOTIFICATION, {
-                        message: 'Screenshot downloaded (clipboard not supported)',
-                        type: 'info'
+                        message: 'Failed to share screenshot',
+                        type: 'error'
                     });
                 }
             }, 'image/png');
