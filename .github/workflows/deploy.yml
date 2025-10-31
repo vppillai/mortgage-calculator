@@ -41,7 +41,6 @@ jobs:
       
       - name: Verify build
         run: npm run build
-        run: npm run lint
 
   # Deploy job: Only runs if ALL tests pass (via needs: test)
   build-and-deploy:
