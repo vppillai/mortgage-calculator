@@ -222,7 +222,13 @@ function updateFooterWithVersion(info) {
 
     const parts = [];
     if (info.version && info.version !== 'unknown') {
-        parts.push(`Version: ${info.version}`);
+        // Show release version prominently if it's a release
+        if (info.isRelease) {
+            parts.push(`Release: ${info.version}`);
+        } else {
+            // For dev builds, show as version
+            parts.push(`Version: ${info.version}`);
+        }
     }
     if (info.buildTimeLocal) {
         parts.push(`Deployed: ${info.buildTimeLocal}`);
