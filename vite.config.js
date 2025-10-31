@@ -46,7 +46,7 @@ export default defineConfig({
     plugins: [
         VitePWA({
             registerType: 'autoUpdate',
-            includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+            includeAssets: ['favicon.ico', 'favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
             manifest: {
                 name: 'Mortgage Prepayment Calculator',
                 short_name: 'Prepayment Calc',

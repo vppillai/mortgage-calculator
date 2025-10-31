@@ -251,4 +251,3 @@ if (document.readyState === 'loading') {
 
 // Export for testing
 export { init };
-

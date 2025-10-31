@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+/**
+ * Generate PNG icons for PWA from SVG template
+ */
+
 import { writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -10,6 +14,7 @@ const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 const publicDir = join(rootDir, 'public');
 
+// SVG template for icons
 function createSVGIcon(size) {
     return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
   <rect width="${size}" height="${size}" fill="#1e40af" rx="${size * 0.12}"/>
@@ -32,21 +37,29 @@ async function generateIcons() {
         console.log(`✅ Created pwa-${size}x${size}.png`);
     });
     
+    // Also create apple-touch-icon (180x180) and favicon.ico
     const appleSVG = Buffer.from(createSVGIcon(180));
-    const applePNG = await sharp(appleSVG).resize(180, 180).png().toBuffer();
+    const applePNG = await sharp(appleSVG)
+        .resize(180, 180)
+        .png()
+        .toBuffer();
     writeFileSync(join(publicDir, 'apple-touch-icon.png'), applePNG);
     console.log('✅ Created apple-touch-icon.png');
     
+    // Create favicon.ico (16x16)
     const faviconSVG = Buffer.from(createSVGIcon(16));
-    const faviconICO = await sharp(faviconSVG).resize(16, 16).png().toBuffer();
+    const faviconICO = await sharp(faviconSVG)
+        .resize(16, 16)
+        .png()
+        .toBuffer();
     writeFileSync(join(publicDir, 'favicon.ico'), faviconICO);
     console.log('✅ Created favicon.ico');
     
     await Promise.all(promises);
-    console.log('✅ All icons generated!');
+    console.log('✅ All icons generated successfully!');
 }
 
 generateIcons().catch((error) => {
-    console.error('Error:', error);
+    console.error('Error generating icons:', error);
     process.exit(1);
 });
