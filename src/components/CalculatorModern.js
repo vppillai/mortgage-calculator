@@ -1450,6 +1450,9 @@ export class CalculatorModern {
                 }
             });
 
+            // Fix potential gradient and CSS issues that cause html2canvas to fail
+            this.sanitizeElementForCapture(clone);
+
             // Add website link at the bottom
             const websiteLink = document.createElement('div');
             websiteLink.style.marginTop = '20px';
@@ -1498,21 +1501,59 @@ export class CalculatorModern {
             try {
                 canvas = await html2canvas(clone, canvasOptions);
             } catch (renderError) {
-                // If rendering fails, try with more conservative options
                 logger.debug('html2canvas failed with optimized options, trying fallback:', renderError);
 
-                const fallbackOptions = {
-                    backgroundColor: document.documentElement.classList.contains('dark')
-                        ? '#1f2937'
-                        : '#ffffff',
-                    scale: 1,
-                    logging: false,
-                    useCORS: false,
-                    allowTaint: true,
-                    foreignObjectRendering: false,
-                };
+                // First fallback: More conservative options
+                try {
+                    const fallbackOptions = {
+                        backgroundColor: document.documentElement.classList.contains('dark')
+                            ? '#1f2937'
+                            : '#ffffff',
+                        scale: 1,
+                        logging: false,
+                        useCORS: false,
+                        allowTaint: true,
+                        foreignObjectRendering: false,
+                        // Additional options to avoid gradient issues
+                        ignoreElements: (element) => {
+                            // Skip elements that might have problematic gradients
+                            const style = window.getComputedStyle(element);
+                            return style.backgroundImage &&
+                                   (style.backgroundImage.includes('gradient') ||
+                                    style.backgroundImage.includes('linear-gradient') ||
+                                    style.backgroundImage.includes('radial-gradient') ||
+                                    style.backgroundImage.includes('conic-gradient'));
+                        },
+                    };
 
-                canvas = await html2canvas(clone, fallbackOptions);
+                    canvas = await html2canvas(clone, fallbackOptions);
+                } catch (secondError) {
+                    logger.debug('First fallback failed, trying ultra-conservative approach:', secondError);
+
+                    // Ultra-conservative fallback: Strip all styling that could cause issues
+                    this.stripProblematicStyles(clone);
+
+                    const ultraConservativeOptions = {
+                        backgroundColor: document.documentElement.classList.contains('dark')
+                            ? '#1f2937'
+                            : '#ffffff',
+                        scale: 1,
+                        logging: true, // Enable logging to debug further issues
+                        useCORS: false,
+                        allowTaint: true,
+                        foreignObjectRendering: false,
+                        ignoreElements: () => false, // Don't ignore any elements
+                        onclone: (clonedDoc) => {
+                            // Final cleanup on the cloned document
+                            clonedDoc.querySelectorAll('*').forEach(el => {
+                                el.style.backgroundImage = 'none';
+                                el.style.background = el.style.backgroundColor || 'transparent';
+                            });
+                        }
+                    };
+
+                    canvas = await html2canvas(clone, ultraConservativeOptions);
+                }
             }
 
             // Clean up
@@ -1623,6 +1664,92 @@ export class CalculatorModern {
                 type: 'error'
             });
         }
+    }
+
+    /**
+     * Sanitize DOM element for html2canvas capture by removing problematic CSS
+     */
+    sanitizeElementForCapture(element) {
+        // Get all elements including the root
+        const allElements = [element, ...element.querySelectorAll('*')];
+
+        allElements.forEach(el => {
+            // Remove problematic CSS properties that cause gradient failures
+            const style = window.getComputedStyle(el);
+
+            // Check for background images with gradients (comprehensive check)
+            if (style.backgroundImage &&
+                (style.backgroundImage.includes('gradient') ||
+                 style.backgroundImage.includes('linear-gradient') ||
+                 style.backgroundImage.includes('radial-gradient') ||
+                 style.backgroundImage.includes('conic-gradient'))) {
+                el.style.backgroundImage = 'none';
+                // Also explicitly set background to a solid color
+                if (el.tagName === 'TABLE' || el.tagName === 'TD' || el.tagName === 'TH' || el.tagName === 'TR') {
+                    el.style.backgroundColor = document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff';
+                }
+            }
+
+            // Remove box shadows that can cause issues
+            if (style.boxShadow && style.boxShadow !== 'none') {
+                el.style.boxShadow = 'none';
+            }
+
+            // Remove transitions and animations
+            el.style.transition = 'none';
+            el.style.animation = 'none';
+
+            // Ensure all numeric CSS values are finite
+            const problematicProps = ['borderRadius', 'borderWidth', 'padding', 'margin'];
+            problematicProps.forEach(prop => {
+                const value = style[prop];
+                if (value && (value.includes('NaN') || value.includes('Infinity'))) {
+                    el.style[prop] = '0';
+                }
+            });
+
+            // Force simple backgrounds for table elements
+            if (el.tagName === 'TABLE' || el.tagName === 'TD' || el.tagName === 'TH' || el.tagName === 'TR') {
+                const bgColor = document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff';
+                el.style.backgroundColor = bgColor;
+                el.style.backgroundImage = 'none';
+            }
+        });
+    }
+
+    /**
+     * Ultra-aggressive style stripping for problematic elements
+     */
+    stripProblematicStyles(element) {
+        const allElements = [element, ...element.querySelectorAll('*')];
+
+        allElements.forEach(el => {
+            // Remove all background properties
+            el.style.backgroundImage = 'none';
+            el.style.backgroundAttachment = 'initial';
+            el.style.backgroundClip = 'initial';
+            el.style.backgroundColor = 'transparent';
+            el.style.backgroundOrigin = 'initial';
+            el.style.backgroundPosition = 'initial';
+            el.style.backgroundRepeat = 'initial';
+            el.style.backgroundSize = 'initial';
+            el.style.background = 'transparent';
+
+            // Remove shadows and filters
+            el.style.boxShadow = 'none';
+            el.style.filter = 'none';
+            el.style.backdropFilter = 'none';
+
+            // Remove transforms that could cause issues
+            el.style.transform = 'none';
+            el.style.transformOrigin = 'initial';
+
+            // Ensure all measurements are valid
+            const resetToZero = ['borderRadius', 'borderWidth', 'outline', 'textShadow'];
+            resetToZero.forEach(prop => {
+                el.style[prop] = prop.includes('Width') || prop.includes('Radius') ? '0' : 'none';
+            });
+        });
     }
 
     /**
