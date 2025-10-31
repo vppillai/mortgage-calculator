@@ -1,8 +1,34 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'child_process';
+
+// Get version info at build time
+function getVersionInfo() {
+    try {
+        const version = execSync('git describe --always --tags --dirty', { 
+            encoding: 'utf-8',
+            stdio: 'pipe'
+        }).trim();
+        return { GIT_VERSION: JSON.stringify(version) };
+    } catch (e) {
+        try {
+            const commit = execSync('git rev-parse --short HEAD', { 
+                encoding: 'utf-8',
+                stdio: 'pipe'
+            }).trim();
+            return { GIT_VERSION: JSON.stringify(commit) };
+        } catch (e2) {
+            return { GIT_VERSION: JSON.stringify('dev') };
+        }
+    }
+}
 
 export default defineConfig({
     base: '/mortgage-calculator/',
+    define: {
+        ...getVersionInfo(),
+        BUILD_TIME: JSON.stringify(new Date().toISOString()),
+    },
     build: {
         outDir: 'dist',
         sourcemap: true,
@@ -13,7 +39,10 @@ export default defineConfig({
                 },
             },
         },
+        // Copy version.json to dist
+        copyPublicDir: true,
     },
+    publicDir: 'public',
     plugins: [
         VitePWA({
             registerType: 'autoUpdate',

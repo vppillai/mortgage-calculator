@@ -179,7 +179,58 @@ function init() {
     // Setup event listeners
     setupEventListeners();
 
+    // Load and display version info in footer
+    loadVersionInfo();
+
     logger.info('Application initialized successfully');
+}
+
+// Load and display version information in footer
+async function loadVersionInfo() {
+    try {
+        // Use base path for GitHub Pages deployment
+        const basePath = import.meta.env.BASE_URL || '/';
+        const versionPath = `${basePath}version.json`.replace(/\/\//g, '/');
+        const response = await fetch(versionPath);
+        if (response.ok) {
+            const versionInfo = await response.json();
+            updateFooterWithVersion(versionInfo);
+        } else {
+            throw new Error('Version file not found');
+        }
+    } catch (error) {
+        logger.debug('Could not load version info', error);
+        // Try to get basic info from environment or fallback
+        updateFooterWithVersion({
+            version: 'dev',
+            buildTimeLocal: new Date().toLocaleString()
+        });
+    }
+}
+
+function updateFooterWithVersion(info) {
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+
+    // Find or create version info paragraph
+    let versionPara = footer.querySelector('.version-info');
+    if (!versionPara) {
+        versionPara = document.createElement('p');
+        versionPara.className = 'version-info text-center text-xs text-gray-400 dark:text-gray-500 mt-2';
+        footer.querySelector('.max-w-7xl').appendChild(versionPara);
+    }
+
+    const parts = [];
+    if (info.version && info.version !== 'unknown') {
+        parts.push(`Version: ${info.version}`);
+    }
+    if (info.buildTimeLocal) {
+        parts.push(`Deployed: ${info.buildTimeLocal}`);
+    }
+
+    if (parts.length > 0) {
+        versionPara.textContent = parts.join(' • ');
+    }
 }
 
 // Start the application
