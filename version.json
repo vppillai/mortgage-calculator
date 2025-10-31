@@ -1,8 +1,8 @@
 {
-  "version": "5d1400f-dirty",
+  "version": "641f3de-dirty",
   "isRelease": false,
-  "commit": "5d1400f3e550d7f075cf31582637846ac67e02e5",
-  "commitShort": "5d1400f",
-  "buildTime": "2025-10-31T15:08:07.892Z",
-  "buildTimeLocal": "Oct 31, 2025, 03:08 PM UTC"
+  "commit": "641f3de27e2f45bf58200b38c056f2aea7e05ae9",
+  "commitShort": "641f3de",
+  "buildTime": "2025-10-31T21:23:07.026Z",
+  "buildTimeLocal": "Oct 31, 2025, 09:23 PM UTC"
 }
