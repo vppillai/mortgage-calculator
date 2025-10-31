@@ -5,15 +5,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description"
-        content="Advanced mortgage prepayment calculator with comparison features. Analyze different payment strategies and see how extra payments reduce interest and time." />
+        content="Free mortgage prepayment calculator with comparison features. Calculate Canadian mortgage payments, analyze prepayment strategies, and see how extra payments reduce interest and loan duration. Compare multiple scenarios side-by-side." />
     <meta name="keywords"
-        content="mortgage calculator, prepayment analysis, extra payments, amortization, interest savings, payment comparison" />
+        content="mortgage calculator, prepayment analysis, extra payments, amortization, interest savings, payment comparison, Canadian mortgage, loan calculator, financial calculator" />
     <meta name="theme-color" content="#1e40af" />
+    <meta name="author" content="Mortgage Calculator Team" />
 
     <!-- Open Graph -->
-    <meta property="og:title" content="Mortgage Prepayment Calculator" />
-    <meta property="og:description" content="Calculate mortgage payments and analyze prepayment strategies" />
+    <meta property="og:title" content="Mortgage Prepayment Calculator | Free Payment Strategy Analyzer" />
+    <meta property="og:description" content="Calculate mortgage payments and analyze prepayment strategies. Compare multiple scenarios and see how extra payments save time and money." />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mortgage Prepayment Calculator" />
+    <meta name="twitter:description" content="Free mortgage calculator with prepayment analysis and scenario comparison" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -24,7 +31,7 @@
 <body
     class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased transition-colors min-h-screen flex flex-col">
     <div id="app" class="flex-1 flex flex-col">
-        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700" role="banner">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div class="flex justify-between items-center">
                     <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
@@ -57,12 +64,12 @@
                 </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1" role="main">
             <div id="calculator-container"></div>
             <div id="comparison-container" class="mt-8"></div>
         </main>
 
-        <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+        <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto" role="contentinfo">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <p class="text-center text-sm text-gray-500 dark:text-gray-400">
                     © 2025 Mortgage Prepayment Calculator. For informational purposes only.

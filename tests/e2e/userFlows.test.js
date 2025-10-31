@@ -6,7 +6,7 @@ test.describe('Basic Mortgage Calculation User Journey', () => {
     });
 
     test('should display the calculator page', async ({ page }) => {
-        await expect(page.locator('h1')).toContainText('Canadian Mortgage Calculator');
+        await expect(page.locator('h1')).toContainText('Mortgage Prepayment Calculator');
         await expect(page.locator('#theme-toggle')).toBeVisible();
     });
 
@@ -28,8 +28,19 @@ test.describe('Basic Mortgage Calculation User Journey', () => {
     });
 
     test('should calculate mortgage payment', async ({ page }) => {
-        // This test will be expanded when Calculator component is implemented
+        // Wait for calculator to load
         await expect(page.locator('#calculator-container')).toBeVisible();
+        
+        // Fill in calculator inputs
+        await page.fill('#principal', '500000');
+        await page.fill('#interestRate', '5.25');
+        await page.fill('#amortizationYears', '25');
+        
+        // Wait for calculation (debounced)
+        await page.waitForTimeout(500);
+        
+        // Check results are displayed
+        await expect(page.locator('#base-mortgage-results')).toBeVisible();
     });
 
     test('should be responsive on mobile', async ({ page }) => {
