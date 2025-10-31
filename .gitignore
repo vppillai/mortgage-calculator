@@ -61,3 +61,7 @@ workbox-*.js
 playwright-report/
 specs/
 test-results/
+
+# Generated version files (created during build)
+public/version.json
+public/version.js
