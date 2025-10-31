@@ -946,8 +946,6 @@ export class CalculatorModern {
     addToComparison() {
         if (!this.result) return;
 
-        const baseScenario = this.scenarios.find(s => s.extraPaymentAmount === 0);
-        // baseTotalCost removed - not currently used
 
         // Calculate total payment including extra
         let totalPayment = this.result.regularPayment;
@@ -1226,7 +1224,6 @@ export class CalculatorModern {
             document.body.appendChild(modal);
         }
 
-        const metadata = generateShareMetadata(this.scenarios);
         modal.innerHTML = `
             <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="share-modal-backdrop" aria-hidden="true"></div>
             <div class="fixed inset-0 z-10 overflow-y-auto">
