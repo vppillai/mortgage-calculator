@@ -31,6 +31,7 @@ class Logger {
      */
     debug(message, data) {
         if (this.level <= LOG_LEVELS.DEBUG) {
+            // eslint-disable-next-line no-console
             console.debug(`[DEBUG] ${message}`, data || '');
             this.addLog('DEBUG', message, data);
         }
@@ -43,6 +44,7 @@ class Logger {
      */
     info(message, data) {
         if (this.level <= LOG_LEVELS.INFO) {
+            // eslint-disable-next-line no-console
             console.log(`[INFO] ${message}`, data || '');
             this.addLog('INFO', message, data);
         }

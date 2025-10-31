@@ -97,6 +97,29 @@
     @apply py-8 sm:py-12 md:py-16;
 }
 
+/* Enhanced scroll indicators for mobile */
+@media (max-width: 640px) {
+    .overflow-x-auto {
+        position: relative;
+    }
+
+    .overflow-x-auto::after {
+        content: '';
+        position: sticky;
+        right: 0;
+        top: 0;
+        width: 30px;
+        height: 100%;
+        background: linear-gradient(to left, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    .dark .overflow-x-auto::after {
+        background: linear-gradient(to left, rgba(17, 24, 39, 1), rgba(17, 24, 39, 0));
+    }
+}
+
 /* Mobile menu transitions */
 .mobile-menu {
     @apply transform transition-transform duration-300 ease-in-out;

@@ -93,6 +93,9 @@ function showNotification(message, type = 'info') {
 
     notification.className = `fixed right-4 z-50 px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm animate-fade-in ${typeClasses[type] || typeClasses.info}`;
     notification.dataset.notificationId = notificationId;
+    notification.setAttribute('role', 'alert');
+    notification.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    notification.setAttribute('aria-atomic', 'true');
 
     // Calculate position based on existing notifications
     const existingCount = activeNotifications.length;
@@ -109,7 +112,7 @@ function showNotification(message, type = 'info') {
 
     notification.innerHTML = `
         <div class="flex items-center gap-3">
-            <span class="text-lg">${icons[type] || icons.info}</span>
+            <span class="text-lg" aria-hidden="true">${icons[type] || icons.info}</span>
             <span class="text-sm font-medium">${message}</span>
         </div>
     `;
@@ -222,13 +225,6 @@ function updateFooterWithVersion(info) {
 
     const parts = [];
     if (info.version && info.version !== 'unknown') {
-        // Show release version prominently if it's a release
-        if (info.isRelease) {
-            parts.push(`Release: ${info.version}`);
-        } else {
-            // For dev builds, show as version
-            parts.push(`Version: ${info.version}`);
-        }
     }
     if (info.buildTimeLocal) {
         parts.push(`Deployed: ${info.buildTimeLocal}`);
