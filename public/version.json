@@ -1,8 +1,8 @@
 {
-  "version": "v1.0.0-14-g40a941c-dirty",
+  "version": "v1.0.0-15-g446ec16-dirty",
   "isRelease": false,
-  "commit": "40a941cf914bd4588fb466a715fc5dd8b912ddfa",
-  "commitShort": "40a941c",
-  "buildTime": "2025-10-31T00:59:09.835Z",
-  "buildTimeLocal": "Oct 31, 2025, 12:59 AM UTC"
+  "commit": "446ec160ef68cde3b2ea67143bb980abfb701729",
+  "commitShort": "446ec16",
+  "buildTime": "2025-10-31T01:04:24.508Z",
+  "buildTimeLocal": "Oct 31, 2025, 01:04 AM UTC"
 }

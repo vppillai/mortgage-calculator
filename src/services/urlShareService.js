@@ -104,6 +104,66 @@ export function generateShareableUrl(scenarios) {
 }
 
 /**
+ * Generate share metadata for better link previews
+ * @param {Array} scenarios - Array of scenario objects
+ * @returns {Object} - Share metadata object
+ */
+export function generateShareMetadata(scenarios) {
+    if (!scenarios || scenarios.length === 0) {
+        return {
+            title: 'Mortgage Prepayment Calculator',
+            text: 'Compare mortgage prepayment scenarios and see how extra payments save time and money.',
+            url: window.location.href.split('?')[0]
+        };
+    }
+
+    const baseScenario = scenarios[0];
+    const scenarioCount = scenarios.length;
+    
+    // Build descriptive text
+    let text = `Mortgage Calculator: ${scenarios.length} scenario${scenarioCount > 1 ? 's' : ''} to compare. `;
+    text += `Principal: $${baseScenario.principal.toLocaleString()}, `;
+    text += `Rate: ${baseScenario.interestRate}%, `;
+    
+    if (baseScenario.extraPaymentAmount > 0) {
+        text += `Extra payment: $${baseScenario.extraPaymentAmount.toLocaleString()}`;
+    }
+    
+    text += ' | Use this tool to analyze prepayment strategies and compare scenarios.';
+
+    return {
+        title: `Mortgage Comparison - ${scenarioCount} Scenario${scenarioCount > 1 ? 's' : ''}`,
+        text: text,
+        url: generateShareableUrl(scenarios)
+    };
+}
+
+/**
+ * Share using Web Share API if available, otherwise fallback to clipboard
+ * @param {Array} scenarios - Array of scenario objects
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function shareWithNativeAPI(scenarios) {
+    if (!navigator.share) {
+        return false;
+    }
+
+    try {
+        const metadata = generateShareMetadata(scenarios);
+        await navigator.share(metadata);
+        return true;
+    } catch (error) {
+        // User cancelled or error occurred
+        if (error.name === 'AbortError') {
+            // User cancelled - not an error
+            return true;
+        }
+        console.error('Web Share API error:', error);
+        return false;
+    }
+}
+
+/**
  * Parse scenarios from current URL
  * @returns {Array} - Array of scenario objects or empty array
  */

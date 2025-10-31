@@ -13,6 +13,8 @@ import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
 import { evaluateExpression, isExpression } from '../utils/expressionEvaluator.js';
 import {
     generateShareableUrl,
+    generateShareMetadata,
+    shareWithNativeAPI,
     parseScenariosFromUrl,
     cleanUrl,
     copyToClipboard
@@ -1170,21 +1172,343 @@ export class CalculatorModern {
 
         try {
             const shareableUrl = generateShareableUrl(this.scenarios);
+
+            // Try Web Share API first (mobile/desktop native sharing)
+            const shared = await shareWithNativeAPI(this.scenarios);
+            if (shared) {
+                // User either shared successfully or cancelled (both are fine)
+                return;
+            }
+
+            // Fallback: Copy to clipboard
             const copied = await copyToClipboard(shareableUrl);
 
             if (copied) {
                 eventBus.emit(EVENTS.NOTIFICATION, {
-                    message: 'Share link copied to clipboard!',
+                    message: 'Link copied to clipboard! Paste it anywhere to share.',
                     type: 'success'
                 });
             } else {
-                // Fallback: show the URL in a prompt
-                prompt('Copy this link to share:', shareableUrl);
+                // Last resort: Show share modal with URL
+                this.showShareModal(shareableUrl);
             }
         } catch (error) {
             logger.error('Failed to generate share link:', error);
+            
+            // Even on error, try to show the modal with the URL
+            try {
+                const shareableUrl = generateShareableUrl(this.scenarios);
+                this.showShareModal(shareableUrl);
+            } catch (fallbackError) {
+                eventBus.emit(EVENTS.NOTIFICATION, {
+                    message: 'Failed to generate share link. Please try again.',
+                    type: 'error'
+                });
+            }
+        }
+    }
+
+    showShareModal(url) {
+        // Create or update share modal
+        let modal = document.getElementById('share-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'share-modal';
+            modal.className = 'fixed inset-0 z-50 hidden';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'share-modal-title');
+            document.body.appendChild(modal);
+        }
+
+        const metadata = generateShareMetadata(this.scenarios);
+        modal.innerHTML = `
+            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="share-modal-backdrop" aria-hidden="true"></div>
+            <div class="fixed inset-0 z-10 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4">
+                    <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                        <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <h3 id="share-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Share Comparison
+                                </h3>
+                                <button id="share-modal-close" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none" aria-label="Close share modal">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Copy this link to share your ${this.scenarios.length} scenario${this.scenarios.length > 1 ? 's' : ''}:
+                            </p>
+                            
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+                                <div class="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        id="share-url-input" 
+                                        readonly 
+                                        value="${url}" 
+                                        class="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 border-none outline-none"
+                                        aria-label="Share URL"
+                                    />
+                                    <button 
+                                        id="share-copy-btn" 
+                                        class="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                        aria-label="Copy URL"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button 
+                                    id="share-native-btn" 
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    ${!navigator.share ? 'disabled' : ''}
+                                    aria-label="Share using native sharing"
+                                >
+                                    ${navigator.share ? '📤 Share' : 'Native sharing not available'}
+                                </button>
+                                <button 
+                                    id="share-modal-close-btn" 
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-lg"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+        // Focus trap
+        const focusableElements = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        function trapFocus(e) {
+            if (e.key === 'Tab') {
+                if (e.shiftKey && document.activeElement === firstElement) {
+                    e.preventDefault();
+                    lastElement.focus();
+                } else if (!e.shiftKey && document.activeElement === lastElement) {
+                    e.preventDefault();
+                    firstElement.focus();
+                }
+            }
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        }
+
+        modal.addEventListener('keydown', trapFocus);
+        if (firstElement) firstElement.focus();
+
+        // Event listeners
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            modal.removeEventListener('keydown', trapFocus);
+        };
+
+        document.getElementById('share-modal-close')?.addEventListener('click', closeModal);
+        document.getElementById('share-modal-close-btn')?.addEventListener('click', closeModal);
+        document.getElementById('share-modal-backdrop')?.addEventListener('click', closeModal);
+
+        // Copy button
+        const copyBtn = document.getElementById('share-copy-btn');
+        const urlInput = document.getElementById('share-url-input');
+        if (copyBtn && urlInput) {
+            copyBtn.addEventListener('click', async () => {
+                urlInput.select();
+                urlInput.setSelectionRange(0, 99999); // For mobile
+                const copied = await copyToClipboard(url);
+                if (copied) {
+                    copyBtn.textContent = '✓ Copied!';
+                    copyBtn.classList.add('text-green-600', 'dark:text-green-400');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.classList.remove('text-green-600', 'dark:text-green-400');
+                    }, 2000);
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Link copied to clipboard!',
+                        type: 'success'
+                    });
+                }
+            });
+        }
+
+        // Native share button
+        const nativeShareBtn = document.getElementById('share-native-btn');
+        if (nativeShareBtn && navigator.share) {
+            nativeShareBtn.addEventListener('click', async () => {
+                try {
+                    await shareWithNativeAPI(this.scenarios);
+                    closeModal();
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        logger.error('Native share failed:', error);
+                        eventBus.emit(EVENTS.NOTIFICATION, {
+                            message: 'Sharing failed. Try copying the link instead.',
+                            type: 'error'
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    async copyTableScreenshot() {
+        if (this.scenarios.length === 0) {
             eventBus.emit(EVENTS.NOTIFICATION, {
-                message: 'Failed to generate share link',
+                message: 'No scenarios to capture',
+                type: 'info'
+            });
+            return;
+        }
+
+        try {
+            // Show loading state
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Generating screenshot...',
+                type: 'info'
+            });
+
+            // Get the table container
+            const tableContainer = document.querySelector('#inline-comparison-table');
+            if (!tableContainer) {
+                throw new Error('Comparison table not found');
+            }
+
+            // Clone the table for clean capture (without buttons, scrollbars)
+            const clone = tableContainer.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = '-9999px';
+            clone.style.width = tableContainer.offsetWidth + 'px';
+            clone.style.backgroundColor = document.documentElement.classList.contains('dark') 
+                ? '#1f2937' 
+                : '#ffffff';
+            clone.style.padding = '20px';
+            clone.style.borderRadius = '8px';
+
+            // Remove scrollbars and hidden elements
+            const scrollableDiv = clone.querySelector('.overflow-x-auto');
+            if (scrollableDiv) {
+                scrollableDiv.style.overflow = 'visible';
+                scrollableDiv.style.maxHeight = 'none';
+                scrollableDiv.style.height = 'auto';
+            }
+            
+            // Also handle nested overflow containers
+            clone.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-auto').forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.maxHeight = 'none';
+                el.style.height = 'auto';
+            });
+
+            // Remove all buttons and action elements
+            clone.querySelectorAll('button').forEach(btn => btn.remove());
+
+            // Remove the actions column header
+            const actionHeaders = clone.querySelectorAll('th');
+            actionHeaders.forEach(th => {
+                if (th.textContent.trim() === '' || th.querySelector('.sr-only')) {
+                    th.remove();
+                }
+            });
+
+            // Remove action cells from table rows (last column with delete buttons)
+            const tableRows = clone.querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                // Remove the last cell (actions column) if it exists
+                if (cells.length > 0) {
+                    const lastCell = cells[cells.length - 1];
+                    // Check if it's likely the actions column (text-center class)
+                    if (lastCell && lastCell.classList.contains('text-center')) {
+                        lastCell.remove();
+                    }
+                }
+            });
+
+            // Add website link at the bottom
+            const websiteLink = document.createElement('div');
+            websiteLink.style.marginTop = '20px';
+            websiteLink.style.paddingTop = '15px';
+            websiteLink.style.borderTop = '1px solid ' + (document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb');
+            websiteLink.style.textAlign = 'center';
+            websiteLink.style.fontSize = '12px';
+            websiteLink.style.fontWeight = '500';
+            websiteLink.style.color = document.documentElement.classList.contains('dark') 
+                ? '#9ca3af' 
+                : '#6b7280';
+            
+            // Get website URL from current location
+            try {
+                const baseUrl = import.meta.env?.BASE_URL || '/';
+                const websiteUrl = window.location.origin + baseUrl.replace(/\/$/, '');
+                websiteLink.textContent = websiteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            } catch (e) {
+                // Fallback to simple domain extraction
+                const domain = window.location.hostname;
+                websiteLink.textContent = domain;
+            }
+            clone.appendChild(websiteLink);
+
+            // Append to body temporarily
+            document.body.appendChild(clone);
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(clone, {
+                backgroundColor: document.documentElement.classList.contains('dark') 
+                    ? '#1f2937' 
+                    : '#ffffff',
+                scale: 2,
+                logging: false,
+                useCORS: true,
+                allowTaint: false,
+            });
+
+            // Clean up
+            document.body.removeChild(clone);
+
+            // Convert to blob and copy to clipboard
+            canvas.toBlob(async (blob) => {
+                try {
+                    const item = new ClipboardItem({ 'image/png': blob });
+                    await navigator.clipboard.write([item]);
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot copied to clipboard!',
+                        type: 'success'
+                    });
+                } catch (error) {
+                    // Fallback: download the image
+                    const url = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    link.download = 'mortgage-comparison.png';
+                    link.href = url;
+                    link.click();
+
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Screenshot downloaded (clipboard not supported)',
+                        type: 'info'
+                    });
+                }
+            }, 'image/png');
+
+        } catch (error) {
+            logger.error('Failed to capture screenshot:', error);
+            eventBus.emit(EVENTS.NOTIFICATION, {
+                message: 'Failed to capture screenshot',
                 type: 'error'
             });
         }
