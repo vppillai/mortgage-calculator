@@ -1,5 +1,8 @@
 export default {
-  "version": "83f93d2-dirty",
-  "buildTime": "2025-10-31T00:43:54.439Z",
-  "buildTimeLocal": "Oct 31, 2025, 12:43 AM UTC"
+  "version": "ee593b5-dirty",
+  "isRelease": false,
+  "commit": "ee593b5e4bf9ba626ae0168fa962c1a06a0e47f3",
+  "commitShort": "ee593b5",
+  "buildTime": "2025-10-31T00:50:36.763Z",
+  "buildTimeLocal": "Oct 31, 2025, 12:50 AM UTC"
 };
