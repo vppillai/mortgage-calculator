@@ -50,7 +50,7 @@ describe('Input Validation', () => {
         expect(result.errors).toContain('RATE_TOO_LOW');
     });
 
-    it('should reject amortization > 25 years for high-ratio mortgages', () => {
+    it('should accept amortization > 25 years for high-ratio mortgages (flexible calculator)', () => {
         const result = validateMortgageInputs({
             principal: 500000,
             interestRate: 5.0,
@@ -59,8 +59,7 @@ describe('Input Validation', () => {
             isHighRatio: true,
         });
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('TERM_TOO_LONG_HIGH_RATIO');
+        expect(result.isValid).toBe(true);
     });
 
     it('should accept valid payment frequencies', () => {
@@ -138,7 +137,18 @@ describe('Input Validation', () => {
         expect(result.isValid).toBe(true);
     });
 
-    it('should reject high-ratio mortgage with 30-year term', () => {
+    it('should accept mortgage with very long term (flexible calculator)', () => {
+        const result = validateMortgageInputs({
+            principal: 500000,
+            interestRate: 5.0,
+            amortizationMonths: 600, // 50 years
+            paymentFrequency: 'monthly',
+        });
+
+        expect(result.isValid).toBe(true);
+    });
+
+    it('should accept high-ratio mortgage with 30-year term (flexible calculator)', () => {
         const result = validateMortgageInputs({
             principal: 500000,
             interestRate: 5.0,
@@ -147,8 +157,7 @@ describe('Input Validation', () => {
             isHighRatio: true,
         });
 
-        expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('TERM_TOO_LONG_HIGH_RATIO');
+        expect(result.isValid).toBe(true);
     });
 
     it('should reject invalid payment frequency', () => {

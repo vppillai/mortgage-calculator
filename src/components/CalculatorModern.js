@@ -1162,7 +1162,10 @@ export class CalculatorModern {
     attachScreenshotButtonListener() {
         const screenshotBtn = document.getElementById('copy-screenshot');
         if (screenshotBtn) {
-            screenshotBtn.addEventListener('click', () => this.copyTableScreenshot());
+            // Remove existing listeners to prevent duplicates
+            const newBtn = screenshotBtn.cloneNode(true);
+            screenshotBtn.parentNode.replaceChild(newBtn, screenshotBtn);
+            newBtn.addEventListener('click', () => this.copyTableScreenshot());
         }
     }
 
@@ -1381,11 +1384,7 @@ export class CalculatorModern {
         }
 
         try {
-            // Show loading state
-            eventBus.emit(EVENTS.NOTIFICATION, {
-                message: 'Generating screenshot...',
-                type: 'info'
-            });
+            // Note: Loading state notification removed - the success notification will show when done
 
             // Get the table container
             const tableContainer = document.querySelector('#inline-comparison-table');
@@ -1487,28 +1486,77 @@ export class CalculatorModern {
 
             // Convert to blob and share/copy
             canvas.toBlob(async (blob) => {
+                if (!blob) {
+                    eventBus.emit(EVENTS.NOTIFICATION, {
+                        message: 'Failed to generate screenshot',
+                        type: 'error'
+                    });
+                    return;
+                }
+
                 try {
-                    // On mobile, use Web Share API with the image file
-                    if (navigator.share && navigator.canShare && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-                        const file = new File([blob], 'mortgage-comparison.png', { type: 'image/png' });
-                        
-                        if (navigator.canShare({ files: [file] })) {
-                            try {
+                    // On mobile, try Web Share API first (works better on mobile than clipboard)
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                                     (window.innerWidth <= 768 && 'ontouchstart' in window);
+                    
+                    if (isMobile && navigator.share) {
+                        try {
+                            const file = new File([blob], 'mortgage-comparison.png', { type: 'image/png' });
+                            
+                            // Try sharing with file first (best experience on mobile)
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
                                 await navigator.share({
                                     files: [file],
                                     title: 'Mortgage Comparison',
                                     text: 'Check out my mortgage comparison scenarios'
                                 });
+                                // Don't show notification on mobile - the native share dialog closing is enough feedback
+                                return;
+                            }
+                        } catch (shareError) {
+                            // User cancelled or share with files failed
+                            if (shareError.name === 'AbortError') {
+                                // User cancelled, don't show any notification
+                                return;
+                            }
+                            // Files not supported, try download instead on mobile
+                            logger.debug('Web Share with files not supported, trying download:', shareError);
+                            
+                            // On mobile, download is often better than clipboard
+                            try {
+                                const url = canvas.toDataURL('image/png');
+                                const link = document.createElement('a');
+                                link.download = 'mortgage-comparison.png';
+                                link.href = url;
+                                
+                                // Create a click event that works on mobile
+                                const clickEvent = new MouseEvent('click', {
+                                    view: window,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                link.dispatchEvent(clickEvent);
+                                
+                                // Also try programmatic click for iOS
+                                if (document.createEvent) {
+                                    const event = document.createEvent('MouseEvents');
+                                    event.initEvent('click', true, true);
+                                    link.dispatchEvent(event);
+                                }
+                                
+                                // Fallback: open in new window for mobile browsers that block downloads
+                                setTimeout(() => {
+                                    window.open(url, '_blank');
+                                }, 100);
+                                
                                 eventBus.emit(EVENTS.NOTIFICATION, {
-                                    message: 'Screenshot shared!',
-                                    type: 'success'
+                                    message: 'Screenshot ready - check your downloads',
+                                    type: 'info'
                                 });
                                 return;
-                            } catch (shareError) {
-                                // User cancelled or share failed, fall through to clipboard
-                                if (shareError.name !== 'AbortError') {
-                                    logger.debug('Web Share API failed, falling back to clipboard:', shareError);
-                                }
+                            } catch (downloadError) {
+                                logger.debug('Download also failed, falling back to clipboard:', downloadError);
+                                // Continue to clipboard fallback below
                             }
                         }
                     }

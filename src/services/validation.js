@@ -12,8 +12,6 @@ const ERROR_MESSAGES = {
     RATE_TOO_LOW: `Interest rate must be at least ${MORTGAGE_CONSTANTS.MIN_INTEREST_RATE}%`,
     RATE_TOO_HIGH: `Interest rate cannot exceed ${MORTGAGE_CONSTANTS.MAX_INTEREST_RATE}%`,
     TERM_TOO_SHORT: 'Amortization period must be at least 1 year',
-    TERM_TOO_LONG_HIGH_RATIO: 'High-ratio mortgages (over 80% LTV) cannot exceed 25 years',
-    TERM_TOO_LONG_CONVENTIONAL: 'Conventional mortgages cannot exceed 30 years',
     INVALID_PAYMENT_FREQUENCY: 'Please select a valid payment frequency',
 };
 
@@ -48,22 +46,15 @@ export function validateMortgageInputs(inputs) {
         fieldErrors.interestRate = ERROR_MESSAGES[error];
     }
 
-    // Validate amortization
+    // Validate amortization - only check minimum for flexibility
     if (amortizationMonths < MORTGAGE_CONSTANTS.MIN_AMORTIZATION) {
         const error = 'TERM_TOO_SHORT';
         errors.push(error);
         fieldErrors.amortizationMonths = ERROR_MESSAGES[error];
     }
 
-    if (isHighRatio && amortizationMonths > MORTGAGE_CONSTANTS.MAX_AMORTIZATION_HIGH_RATIO) {
-        const error = 'TERM_TOO_LONG_HIGH_RATIO';
-        errors.push(error);
-        fieldErrors.amortizationMonths = ERROR_MESSAGES[error];
-    } else if (amortizationMonths > MORTGAGE_CONSTANTS.MAX_AMORTIZATION_CONVENTIONAL) {
-        const error = 'TERM_TOO_LONG_CONVENTIONAL';
-        errors.push(error);
-        fieldErrors.amortizationMonths = ERROR_MESSAGES[error];
-    }
+    // Removed maximum amortization constraints for flexibility
+    // Users can enter any term they need for calculations
 
     // Validate payment frequency
     if (!MORTGAGE_CONSTANTS.PAYMENTS_PER_YEAR[paymentFrequency]) {
