@@ -1,8 +1,8 @@
 {
-  "version": "v1.0.0-53-g431db70-dirty",
+  "version": "v1.0.0-58-g2e13651-dirty",
   "isRelease": false,
-  "commit": "431db70fc318bde62072da912ebc7cad72a55d44",
-  "commitShort": "431db70",
-  "buildTime": "2025-11-07T15:32:02.284Z",
-  "buildTimeLocal": "Nov 7, 2025, 03:32 PM UTC"
+  "commit": "2e13651b120892bcd22722c1d128189d94f56273",
+  "commitShort": "2e13651",
+  "buildTime": "2025-11-07T15:56:27.945Z",
+  "buildTimeLocal": "Nov 7, 2025, 03:56 PM UTC"
 }

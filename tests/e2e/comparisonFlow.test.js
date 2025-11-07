@@ -24,4 +24,3 @@ test.describe('Scenario Comparison', () => {
         await expect(rows.last()).toContainText('600,000', { timeout: 5000 });
     });
 });
-
