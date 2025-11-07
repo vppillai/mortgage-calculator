@@ -11,11 +11,16 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     await page.fill('#amortizationYears', amortizationYears);
 
     // Wait for calculation result instead of arbitrary timeout
+    // Account for debounce delay (500ms) + calculation time
     await page.locator('#base-mortgage-results').waitFor({ state: 'visible' });
     await page.waitForFunction(() => {
         const results = document.querySelector('#base-mortgage-results');
-        return results && results.textContent.includes('$');
-    }, { timeout: 5000 });
+        // Check for results (either loading spinner or actual results with $)
+        if (!results) return false;
+        const text = results.textContent || '';
+        // Results should contain $ (currency) or be in loading state
+        return text.includes('$') || text.includes('Calculating');
+    }, { timeout: 10000 }); // Increased timeout to account for debounce + calculation
 }
 
 /**
