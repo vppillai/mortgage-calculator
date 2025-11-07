@@ -23,16 +23,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run ESLint
         run: npm run lint
 
@@ -42,23 +42,23 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run unit and integration tests
         run: npm test -- --run --exclude="**/e2e/**"
-      
+
       - name: Generate coverage report
         run: npm run test:coverage -- --run --exclude="**/e2e/**"
         continue-on-error: true
-      
+
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         if: always()
@@ -73,27 +73,27 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      
+
       - name: Build application
         run: npm run build
-      
+
       - name: Run E2E tests
         run: npm run test:e2e -- --project=chromium-desktop
         env:
           CI: true
-      
+
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
@@ -108,19 +108,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build application
         run: npm run build
-      
+
       - name: Verify build artifacts
         run: |
           if [ ! -d "dist" ]; then
@@ -146,19 +146,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build for production
         run: npm run build
-      
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
