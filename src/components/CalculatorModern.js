@@ -804,6 +804,9 @@ export class CalculatorModern {
                 this.prepaymentResult = null;
             }
 
+            // Mark calculation as complete BEFORE updating UI
+            this.isCalculating = false;
+
             // Update only the results sections
             this.updateResults();
 
@@ -816,8 +819,6 @@ export class CalculatorModern {
                 result: this.result,
                 prepaymentResult: this.prepaymentResult,
             });
-
-            this.isCalculating = false;
         } catch (error) {
             logger.error('Calculation failed', error);
             this.result = null;
@@ -831,8 +832,12 @@ export class CalculatorModern {
                 type: 'error'
             });
         } finally {
-            // Ensure isCalculating is always reset
-            this.isCalculating = false;
+            // Ensure isCalculating is always reset (safety net)
+            if (this.isCalculating) {
+                logger.warn('isCalculating was still true in finally block, resetting');
+                this.isCalculating = false;
+                this.updateResults();
+            }
         }
     }
 
