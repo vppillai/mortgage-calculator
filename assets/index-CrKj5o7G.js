@@ -644,12 +644,22 @@ In case of a (multi dimensional) array or matrix, the prob order quantile of all
           <button id="download-schedule" class="btn btn-secondary text-sm">
             Download CSV
           </button>
-          <div class="text-xs text-gray-500 dark:text-gray-400">
-            Page ${this.currentPage+1} of ${Math.ceil(this.schedule.length/this.pageSize)}
+          <div class="flex items-center gap-4">
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+              Page ${this.currentPage+1} of ${Math.ceil(this.schedule.length/this.pageSize)}
+            </div>
+            <div class="flex gap-2">
+              <button id="prev-page-bottom" class="btn btn-secondary text-sm" ${this.currentPage===0?"disabled":""}>
+                Previous
+              </button>
+              <button id="next-page-bottom" class="btn btn-secondary text-sm" ${n>=this.schedule.length?"disabled":""}>
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    `,this.attachEventListeners()}attachEventListeners(){const e=document.getElementById("close-schedule");e&&e.addEventListener("click",()=>{this.container.innerHTML=""});const n=document.getElementById("prev-page");n&&n.addEventListener("click",()=>{this.currentPage>0&&(this.currentPage--,this.render())});const t=document.getElementById("next-page");t&&t.addEventListener("click",()=>{const i=Math.ceil(this.schedule.length/this.pageSize)-1;this.currentPage<i&&(this.currentPage++,this.render())});const a=document.getElementById("download-schedule");a&&a.addEventListener("click",()=>{this.downloadCSV()})}downloadCSV(){const e=["Payment #","Date","Principal","Interest","Total Payment","Remaining Balance"],n=this.schedule.map(l=>[l.paymentNumber,l.paymentDate,l.principalPayment,l.interestPayment,l.totalPayment,l.remainingBalance]),t=[e.join(","),...n.map(l=>l.join(","))].join(`
+    `,this.attachEventListeners()}attachEventListeners(){const e=document.getElementById("close-schedule");e&&e.addEventListener("click",()=>{this.container.innerHTML=""});const n=document.getElementById("prev-page");n&&n.addEventListener("click",()=>{this.currentPage>0&&(this.currentPage--,this.render())});const t=document.getElementById("next-page");t&&t.addEventListener("click",()=>{const l=Math.ceil(this.schedule.length/this.pageSize)-1;this.currentPage<l&&(this.currentPage++,this.render())});const a=document.getElementById("prev-page-bottom");a&&a.addEventListener("click",()=>{this.currentPage>0&&(this.currentPage--,this.render())});const i=document.getElementById("next-page-bottom");i&&i.addEventListener("click",()=>{const l=Math.ceil(this.schedule.length/this.pageSize)-1;this.currentPage<l&&(this.currentPage++,this.render())});const s=document.getElementById("download-schedule");s&&s.addEventListener("click",()=>{this.downloadCSV()})}downloadCSV(){const e=["Payment #","Date","Principal","Interest","Total Payment","Remaining Balance"],n=this.schedule.map(l=>[l.paymentNumber,l.paymentDate,l.principalPayment,l.interestPayment,l.totalPayment,l.remainingBalance]),t=[e.join(","),...n.map(l=>l.join(","))].join(`
 `),a=new Blob([t],{type:"text/csv"}),i=URL.createObjectURL(a),s=document.createElement("a");s.href=i,s.download=`amortization-schedule-${new Date().toISOString().split("T")[0]}.csv`,s.click(),URL.revokeObjectURL(i)}}class T${constructor(){this.modalId="info-modal",this.isOpen=!1,this.render(),this.attachEventListeners()}render(){const e=document.createElement("div");e.id=this.modalId,e.className="fixed inset-0 z-50 hidden",e.setAttribute("role","dialog"),e.setAttribute("aria-modal","true"),e.setAttribute("aria-labelledby","modal-title"),e.setAttribute("aria-describedby","modal-description"),e.innerHTML=`
             <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="modal-backdrop" aria-hidden="true"></div>
             <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -750,4 +760,4 @@ In case of a (multi dimensional) array or matrix, the prob order quantile of all
             <span class="text-sm font-medium">${r}</span>
         </div>
     `,document.body.appendChild(n),Za.push(t),setTimeout(()=>{n.style.opacity="0",n.style.transform="translateY(-10px)",setTimeout(()=>{n.remove(),Za=Za.filter(u=>u!==t),I$()},300)},2700)}function I$(){document.querySelectorAll("[data-notification-id]").forEach((e,n)=>{const t=16+n*76;e.style.top=`${t}px`})}function $$(){const r=document.querySelector("main");if(r&&!document.getElementById("amortization-container")){const e=document.createElement("div");e.id="amortization-container",r.appendChild(e)}}function Yf(){cr.info("Initializing Canadian Mortgage Calculator"),B$(),$$();const r=Bn.getPreferences();cr.debug("Loaded preferences",r),un.calculator=new _$("calculator-container"),cr.info("Modern calculator component initialized"),un.amortizationSchedule=new F$("amortization-container"),cr.info("Amortization schedule initialized"),un.infoModal=new T$,cr.info("Info modal initialized"),O$(),R$(),cr.info("Application initialized successfully")}async function R$(){try{const e="/mortgage-calculator/version.json".replace(/\/\//g,"/"),n=await fetch(e);if(n.ok){const t=await n.json();Wf(t)}else throw new Error("Version file not found")}catch(r){cr.debug("Could not load version info",r),Wf({version:"dev",buildTimeLocal:new Date().toLocaleString()})}}function Wf(r){const e=document.querySelector("footer");if(!e)return;let n=e.querySelector(".version-info");n||(n=document.createElement("p"),n.className="version-info text-center text-xs text-gray-400 dark:text-gray-500 mt-2",e.querySelector(".max-w-7xl").appendChild(n));const t=[];r.version&&r.version!=="unknown"&&(r.isRelease?t.push(`Release: ${r.version}`):t.push(`Version: ${r.version}`)),r.buildTimeLocal&&t.push(`Deployed: ${r.buildTimeLocal}`),t.length>0&&(n.textContent=t.join(" • "))}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",Yf):Yf();
-//# sourceMappingURL=index-XpvTAOrG.js.map
+//# sourceMappingURL=index-CrKj5o7G.js.map
