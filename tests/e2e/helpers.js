@@ -3,36 +3,34 @@
  */
 
 /**
+ * E2E Test Helpers - Common functions to reduce test duplication and improve performance
+ */
+
+import { expect } from '@playwright/test';
+
+/**
  * Fill calculator with values and wait for calculation
- * Accounts for debounce delay (500ms) + calculation time
+ * Uses Playwright's expect with proper timeout handling
  */
 export async function fillAndCalculate(page, { principal = '500000', interestRate = '5.25', amortizationYears = '25' } = {}) {
+    // Fill in the form fields
     await page.fill('#principal', principal);
     await page.fill('#interestRate', interestRate);
     await page.fill('#amortizationYears', amortizationYears);
 
-    // Wait for calculation result - account for debounce (500ms) + calculation time
+    // Wait for results container to be visible
     const resultsLocator = page.locator('#base-mortgage-results');
-    await resultsLocator.waitFor({ state: 'visible' });
-    
-    // Small delay to ensure debounce has triggered
-    await page.waitForTimeout(600); // Wait for debounce (500ms) + buffer
-    
-    // Wait for the loading state to disappear and results to appear using Playwright's expect
-    // This is more reliable than waitForFunction
-    await resultsLocator.waitFor({ 
-        state: 'visible',
-        timeout: 15000 
-    });
-    
-    // Wait for actual results (not just loading spinner)
-    await page.waitForFunction(() => {
-        const results = document.querySelector('#base-mortgage-results');
-        if (!results) return false;
-        const text = results.textContent || '';
-        // Check that we have actual results (contains $) and not just "Calculating..."
-        return text.includes('$') && !text.includes('Calculating...');
-    }, { timeout: 15000 });
+    await resultsLocator.waitFor({ state: 'visible', timeout: 2000 });
+
+    // Wait for debounce delay to complete (500ms) + small buffer
+    await page.waitForTimeout(700);
+
+    // Wait for loading state to disappear - check that "Calculating..." is not present
+    // This uses Playwright's expect which respects the expect.timeout setting
+    await expect(resultsLocator).not.toContainText('Calculating...', { timeout: 15000 });
+
+    // Wait for actual results to appear (must contain $)
+    await expect(resultsLocator).toContainText('$', { timeout: 15000 });
 }
 
 /**

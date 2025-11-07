@@ -18,7 +18,7 @@ export default defineConfig({
         video: 'retain-on-failure', // Only video on failure
         // Performance optimizations
         navigationTimeout: 10000, // Faster navigation timeout
-        actionTimeout: 5000, // Faster action timeout
+        actionTimeout: 15000, // Increased to match expect timeout
     },
     projects: [
         {
@@ -43,4 +43,3 @@ export default defineConfig({
         stderr: 'pipe',
     },
 });
-
