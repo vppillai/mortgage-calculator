@@ -210,26 +210,44 @@ export class AmortizationSchedule {
         <!-- Graph Container -->
         <div class="relative mb-4" style="height: 400px;">
           <canvas id="amortization-chart"></canvas>
-          <div id="chart-tooltip" class="absolute bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 pointer-events-none opacity-0 transition-opacity duration-200 z-10" style="min-width: 200px;">
-            <div class="text-xs font-semibold text-gray-900 dark:text-white mb-2" id="tooltip-payment"></div>
-            <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-              <div>Principal: <span class="font-medium text-blue-600 dark:text-blue-400" id="tooltip-principal"></span></div>
-              <div>Interest: <span class="font-medium text-green-600 dark:text-green-400" id="tooltip-interest"></span></div>
-              <div>Total: <span class="font-medium text-gray-900 dark:text-white" id="tooltip-total"></span></div>
-              <div>Balance: <span class="font-medium text-gray-900 dark:text-white" id="tooltip-balance"></span></div>
-            </div>
-          </div>
         </div>
 
-        <!-- Legend -->
-        <div class="flex justify-center items-center gap-6 mb-4 flex-wrap">
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-0.5 bg-blue-500"></div>
-            <span class="text-sm text-gray-600 dark:text-gray-400">Principal</span>
+        <!-- Legend and Info Panel -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div class="flex items-center gap-6 flex-wrap">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-0.5 bg-blue-500"></div>
+              <span class="text-sm text-gray-600 dark:text-gray-400">Principal</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-0.5 bg-green-500"></div>
+              <span class="text-sm text-gray-600 dark:text-gray-400">Interest</span>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-0.5 bg-green-500"></div>
-            <span class="text-sm text-gray-600 dark:text-gray-400">Interest</span>
+          
+          <!-- Fixed Info Panel -->
+          <div id="chart-info-panel" class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 transition-opacity duration-200 opacity-0 min-w-[240px] sm:min-w-[280px]">
+            <div class="text-sm font-semibold text-gray-900 dark:text-white mb-3" id="info-payment">
+              Hover over the graph
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="flex flex-col">
+                <span class="text-gray-500 dark:text-gray-400 mb-1">Principal</span>
+                <span class="font-medium text-blue-600 dark:text-blue-400" id="info-principal">-</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-gray-500 dark:text-gray-400 mb-1">Interest</span>
+                <span class="font-medium text-green-600 dark:text-green-400" id="info-interest">-</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-gray-500 dark:text-gray-400 mb-1">Total Payment</span>
+                <span class="font-medium text-gray-900 dark:text-white" id="info-total">-</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-gray-500 dark:text-gray-400 mb-1">Balance</span>
+                <span class="font-medium text-gray-900 dark:text-white" id="info-balance">-</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -253,7 +271,7 @@ export class AmortizationSchedule {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        const tooltip = document.getElementById('chart-tooltip');
+        const infoPanel = document.getElementById('chart-info-panel');
 
         this.chart = new Chart(ctx, {
             type: 'line',
@@ -363,7 +381,7 @@ export class AmortizationSchedule {
 
             const chartArea = this.chart.chartArea;
             if (x < chartArea.left || x > chartArea.right || y < chartArea.top || y > chartArea.bottom) {
-                tooltip.style.opacity = '0';
+                infoPanel.style.opacity = '0';
                 this.hoveredIndex = null;
                 return;
             }
@@ -373,44 +391,26 @@ export class AmortizationSchedule {
             const value = xScale.getValueForPixel(x);
             const index = Math.round(value);
 
-            if (index >= 0 && index < labels.length && index !== this.hoveredIndex) {
+            if (index >= 0 && index < labels.length) {
                 this.hoveredIndex = index;
                 const payment = this.schedule[index];
 
-                // Update tooltip content
-                document.getElementById('tooltip-payment').textContent = `Payment #${payment.paymentNumber}`;
-                document.getElementById('tooltip-principal').textContent = formatCAD(payment.principalPayment);
-                document.getElementById('tooltip-interest').textContent = formatCAD(payment.interestPayment);
-                document.getElementById('tooltip-total').textContent = formatCAD(payment.totalPayment);
-                document.getElementById('tooltip-balance').textContent = formatCAD(payment.remainingBalance);
+                // Update info panel content
+                document.getElementById('info-payment').textContent = `Payment #${payment.paymentNumber}`;
+                document.getElementById('info-principal').textContent = formatCAD(payment.principalPayment);
+                document.getElementById('info-interest').textContent = formatCAD(payment.interestPayment);
+                document.getElementById('info-total').textContent = formatCAD(payment.totalPayment);
+                document.getElementById('info-balance').textContent = formatCAD(payment.remainingBalance);
 
-                // Position tooltip
-                const tooltipWidth = tooltip.offsetWidth;
-                const tooltipHeight = tooltip.offsetHeight;
-                let tooltipX = x + rect.left + 10;
-                let tooltipY = y + rect.top - tooltipHeight / 2;
-
-                // Keep tooltip within viewport
-                if (tooltipX + tooltipWidth > window.innerWidth) {
-                    tooltipX = x + rect.left - tooltipWidth - 10;
-                }
-                if (tooltipY + tooltipHeight > window.innerHeight) {
-                    tooltipY = window.innerHeight - tooltipHeight - 10;
-                }
-                if (tooltipY < 0) {
-                    tooltipY = 10;
-                }
-
-                tooltip.style.left = `${tooltipX}px`;
-                tooltip.style.top = `${tooltipY}px`;
-                tooltip.style.opacity = '1';
+                // Show info panel
+                infoPanel.style.opacity = '1';
             }
         };
 
         // Mouse events
         canvas.addEventListener('mousemove', handleHover);
         canvas.addEventListener('mouseleave', () => {
-            tooltip.style.opacity = '0';
+            infoPanel.style.opacity = '0';
             this.hoveredIndex = null;
         });
 
@@ -426,10 +426,11 @@ export class AmortizationSchedule {
             handleHover(e.touches[0]);
         });
         canvas.addEventListener('touchend', () => {
+            // Keep info panel visible for a bit after touch ends
             touchTimeout = setTimeout(() => {
-                tooltip.style.opacity = '0';
+                infoPanel.style.opacity = '0';
                 this.hoveredIndex = null;
-            }, 2000); // Hide after 2 seconds
+            }, 3000); // Hide after 3 seconds
         });
     }
 
