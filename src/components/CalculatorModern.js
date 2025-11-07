@@ -754,7 +754,14 @@ export class CalculatorModern {
      * Validates inputs, calculates base mortgage and prepayment scenarios
      */
     performCalculations() {
+        // Ensure we're not already calculating (prevent infinite loops)
+        if (this.isCalculating) {
+            logger.warn('Calculation already in progress, skipping');
+            return;
+        }
+
         this.isCalculating = true;
+        this.updateResults(); // Show loading state immediately
 
         // Validate inputs
         const validation = validateMortgageInputs(this.state);
@@ -823,6 +830,9 @@ export class CalculatorModern {
                 message: 'An error occurred during calculation. Please check your inputs and try again.',
                 type: 'error'
             });
+        } finally {
+            // Ensure isCalculating is always reset
+            this.isCalculating = false;
         }
     }
 
