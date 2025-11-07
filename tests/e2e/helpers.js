@@ -35,6 +35,9 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     // This will wait up to 25 seconds for the calculation to complete
     await expect(resultsLocator).toContainText('$', { timeout: 25000 });
 
+    // Wait for "Calculating..." to disappear to ensure calculation is complete
+    await expect(resultsLocator).not.toContainText('Calculating...', { timeout: 10000 });
+
     // Final verification that we have actual results
     const text = await resultsLocator.textContent();
     if (!text || !text.includes('$')) {
@@ -43,6 +46,9 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     if (text && text.includes('Calculating...')) {
         throw new Error(`Calculation still in progress. Current text: ${text.substring(0, 100)}`);
     }
+
+    // Additional wait to ensure state is fully updated
+    await page.waitForTimeout(300);
 }
 
 /**
@@ -59,6 +65,8 @@ export async function setupCalculator(page) {
 export async function addScenarioToComparison(page) {
     await page.click('#add-to-comparison');
     await page.locator('#inline-comparison-table').waitFor({ state: 'visible' });
+    // Wait a bit for the table to render with the new scenario data
+    await page.waitForTimeout(300);
 }
 
 /**

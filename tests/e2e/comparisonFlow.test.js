@@ -18,9 +18,10 @@ test.describe('Scenario Comparison', () => {
         await expect(page.locator('tbody tr')).toHaveCount(2);
 
         // Verify comparison data shows differences
+        // Check for formatted currency values (formatCAD formats as "$500,000.00")
         const rows = page.locator('tbody tr');
-        await expect(rows.first()).toContainText('500000');
-        await expect(rows.last()).toContainText('600000');
+        await expect(rows.first()).toContainText('500,000', { timeout: 5000 });
+        await expect(rows.last()).toContainText('600,000', { timeout: 5000 });
     });
 });
 
