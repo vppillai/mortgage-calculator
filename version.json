@@ -1,8 +1,8 @@
 {
-  "version": "9162a4a-dirty",
+  "version": "ecc63da-dirty",
   "isRelease": false,
-  "commit": "9162a4af9a3f7ec127161c6d50a81964c00fd899",
-  "commitShort": "9162a4a",
-  "buildTime": "2025-11-07T16:07:58.954Z",
-  "buildTimeLocal": "Nov 7, 2025, 04:07 PM UTC"
+  "commit": "ecc63da289120b15a09dea3ba0deda0f0f81bde9",
+  "commitShort": "ecc63da",
+  "buildTime": "2025-11-07T16:31:52.686Z",
+  "buildTimeLocal": "Nov 7, 2025, 04:31 PM UTC"
 }
