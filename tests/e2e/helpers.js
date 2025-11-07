@@ -12,19 +12,27 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     await page.fill('#amortizationYears', amortizationYears);
 
     // Wait for calculation result - account for debounce (500ms) + calculation time
-    await page.locator('#base-mortgage-results').waitFor({ state: 'visible' });
+    const resultsLocator = page.locator('#base-mortgage-results');
+    await resultsLocator.waitFor({ state: 'visible' });
     
     // Small delay to ensure debounce has triggered
     await page.waitForTimeout(600); // Wait for debounce (500ms) + buffer
     
-    // Wait for the loading state to disappear and results to appear
+    // Wait for the loading state to disappear and results to appear using Playwright's expect
+    // This is more reliable than waitForFunction
+    await resultsLocator.waitFor({ 
+        state: 'visible',
+        timeout: 15000 
+    });
+    
+    // Wait for actual results (not just loading spinner)
     await page.waitForFunction(() => {
         const results = document.querySelector('#base-mortgage-results');
         if (!results) return false;
         const text = results.textContent || '';
         // Check that we have actual results (contains $) and not just "Calculating..."
         return text.includes('$') && !text.includes('Calculating...');
-    }, { timeout: 15000 }); // Increased timeout to 15s to account for debounce + calculation
+    }, { timeout: 15000 });
 }
 
 /**
