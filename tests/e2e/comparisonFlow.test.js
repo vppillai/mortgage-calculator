@@ -1,46 +1,26 @@
 import { test, expect } from '@playwright/test';
+import { setupCalculator, fillAndCalculate, addScenarioToComparison } from './helpers.js';
 
-test.describe('Comparison Flow', () => {
+test.describe('Scenario Comparison', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await setupCalculator(page);
     });
 
-    test('should add scenario to comparison table', async ({ page }) => {
-        // Fill out calculator
-        await page.fill('#principal', '500000');
-        await page.fill('#interestRate', '5.25');
-        await page.fill('#amortizationYears', '25');
+    test('should add and manage comparison scenarios', async ({ page }) => {
+        // Add first scenario
+        await fillAndCalculate(page);
+        await addScenarioToComparison(page);
+        await expect(page.locator('tbody tr')).toHaveCount(1);
 
-        // Wait for calculation (debounced)
-        await page.waitForTimeout(500);
+        // Add second scenario with different values
+        await fillAndCalculate(page, { principal: '600000', interestRate: '4.75' });
+        await addScenarioToComparison(page);
+        await expect(page.locator('tbody tr')).toHaveCount(2);
 
-        // Wait for results
-        await page.waitForSelector('#base-mortgage-results', { state: 'visible' });
-
-        // Add to comparison
-        await page.click('#add-to-comparison');
-
-        // Wait for comparison table to update
-        await page.waitForTimeout(300);
-
-        // Verify comparison table appears
-        await expect(page.locator('#inline-comparison-table')).toBeVisible();
-    });
-
-    test('should display multiple scenarios in comparison', async ({ page }) => {
-        // This test would add multiple scenarios
-        // Skipped for now as it requires full UI implementation
-        expect(true).toBe(true);
-    });
-
-    test('should remove scenario from comparison', async ({ page }) => {
-        // Test removal functionality
-        expect(true).toBe(true);
-    });
-
-    test('should highlight best option', async ({ page }) => {
-        // Test best option highlighting
-        expect(true).toBe(true);
+        // Verify comparison data shows differences
+        const rows = page.locator('tbody tr');
+        await expect(rows.first()).toContainText('500000');
+        await expect(rows.last()).toContainText('600000');
     });
 });
 

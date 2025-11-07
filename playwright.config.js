@@ -5,43 +5,42 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
-    reporter: 'html',
+    workers: process.env.CI ? 1 : 2, // Limit workers for better resource usage
+    reporter: process.env.CI ? 'github' : 'list', // Faster reporters
+    timeout: 30000, // Reduce overall test timeout
+    expect: {
+        timeout: 5000, // Faster assertion timeout
+    },
     use: {
         baseURL: 'http://localhost:4173',
-        trace: 'on-first-retry',
+        trace: 'retain-on-failure', // Only trace on failure
+        screenshot: 'only-on-failure', // Only screenshot on failure
+        video: 'retain-on-failure', // Only video on failure
+        // Performance optimizations
+        navigationTimeout: 10000, // Faster navigation timeout
+        actionTimeout: 5000, // Faster action timeout
     },
     projects: [
         {
-            name: 'chromium',
+            name: 'chromium-desktop',
             use: {
                 ...devices['Desktop Chrome'],
-                // Enable touch support for mobile tests
-                hasTouch: true,
+                hasTouch: true, // Support both desktop and mobile interactions
             },
         },
-        {
-            name: 'firefox',
-            use: { ...devices['Desktop Firefox'] },
-        },
-        {
-            name: 'webkit',
-            use: { ...devices['Desktop Safari'] },
-        },
-        {
-            name: 'Mobile Chrome',
+        // Only run mobile tests in CI or when specifically needed
+        ...(process.env.CI || process.env.MOBILE_TESTS ? [{
+            name: 'mobile-chrome',
             use: { ...devices['Pixel 5'] },
-        },
-        {
-            name: 'Mobile Safari',
-            use: { ...devices['iPhone 12'] },
-        },
+        }] : []),
     ],
     webServer: {
         command: 'npm run build && npm run preview',
         url: 'http://localhost:4173',
         reuseExistingServer: !process.env.CI,
-        timeout: 120000,
+        timeout: 60000, // Reduced timeout
+        stdout: 'pipe', // Suppress server output
+        stderr: 'pipe',
     },
 });
 

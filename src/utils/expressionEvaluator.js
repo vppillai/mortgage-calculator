@@ -1,14 +1,23 @@
 /**
  * Safe mathematical expression evaluator
  * Supports +, -, *, /, () and numbers
+ * Uses mathjs for secure evaluation
  */
 
+import { evaluate } from 'mathjs';
+import { UI_CONSTANTS } from './constants.js';
+
+/**
+ * Evaluate a mathematical expression safely
+ * @param {string} expr - Mathematical expression to evaluate
+ * @returns {number|null} - Evaluated result or null if invalid
+ */
 export function evaluateExpression(expr) {
     // Remove whitespace
     expr = expr.replace(/\s/g, '');
 
-    // Validate expression contains only allowed characters
-    if (!/^[0-9+\-*/().,]+$/.test(expr)) {
+    // More strict validation - only allow numbers, operators, and parentheses
+    if (!/^[0-9+\-*/().,]+$/.test(expr) || expr.length > UI_CONSTANTS.MAX_EXPRESSION_LENGTH) {
         return null;
     }
 
@@ -16,9 +25,8 @@ export function evaluateExpression(expr) {
     expr = expr.replace(/,/g, '');
 
     try {
-        // Create a safe evaluation context
-        // This is safe because we've validated the input contains only math operators
-        const result = Function('"use strict"; return (' + expr + ')')();
+        // Use mathjs which is safer than Function() constructor
+        const result = evaluate(expr);
 
         // Check if result is a valid number
         if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {

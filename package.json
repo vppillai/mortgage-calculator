@@ -11,13 +11,16 @@
         "test": "vitest",
         "test:ui": "vitest --ui",
         "test:e2e": "playwright test",
+        "test:e2e:dev": "playwright test --config=playwright.dev.config.js",
+        "test:e2e:mobile": "MOBILE_TESTS=true playwright test",
         "test:coverage": "vitest --coverage",
         "lint": "eslint src --ext .js",
         "format": "prettier --write \"src/**/*.{js,css,html}\""
     },
     "dependencies": {
         "decimal.js": "^10.4.3",
-        "html2canvas": "^1.4.1"
+        "html2canvas": "^1.4.1",
+        "mathjs": "^15.1.0"
     },
     "devDependencies": {
         "@playwright/test": "^1.40.1",

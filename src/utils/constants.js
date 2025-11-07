@@ -69,5 +69,25 @@ export const MORTGAGE_CONSTANTS = {
     },
 };
 
-export default MORTGAGE_CONSTANTS;
+// UI-specific constants
+export const UI_CONSTANTS = {
+    // Debounce and timing
+    DEBOUNCE_DELAY: 500, // Increased from 300ms for better UX
+    NOTIFICATION_SPACING: 76,
+    NOTIFICATION_DURATION: 2700,
 
+    // Limits
+    MAX_SCENARIOS: 50,
+    MAX_EXPRESSION_LENGTH: 100,
+
+    // Virtual scrolling (for amortization schedule)
+    ROW_HEIGHT: 40,
+    VISIBLE_ROWS: 15,
+
+    // Screenshot options
+    SCREENSHOT_SCALE_MOBILE: 1,
+    SCREENSHOT_SCALE_DESKTOP: 2,
+    SCREENSHOT_TIMEOUT: 15000,
+};
+
+export default MORTGAGE_CONSTANTS;

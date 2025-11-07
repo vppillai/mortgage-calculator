@@ -7,6 +7,9 @@ import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
 class StorageService {
     constructor() {
         this.keys = MORTGAGE_CONSTANTS.STORAGE_KEYS;
+        this._available = null; // Cache availability check
+        this._readOnly = false; // Track if we're in read-only mode
+        this._quotaExceeded = false; // Track quota exceeded state
     }
 
     /**
@@ -14,14 +17,57 @@ class StorageService {
      * @returns {boolean}
      */
     isAvailable() {
+        if (this._available !== null) {
+            return this._available;
+        }
+
         try {
             const test = '__storage_test__';
             localStorage.setItem(test, test);
             localStorage.removeItem(test);
+            this._available = true;
+            this._readOnly = false;
             return true;
         } catch (e) {
+            // Check if it's a quota exceeded error (read-only mode)
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                this._quotaExceeded = true;
+                this._readOnly = true;
+                this._available = true; // Available but full
+            } else {
+                this._available = false;
+                this._readOnly = true;
+            }
             return false;
         }
+    }
+
+    /**
+     * Check if storage is in read-only mode (available but can't write)
+     * @returns {boolean}
+     */
+    isReadOnly() {
+        if (this._available === null) {
+            this.isAvailable(); // Initialize availability check
+        }
+        return this._readOnly;
+    }
+
+    /**
+     * Check if quota is exceeded
+     * @returns {boolean}
+     */
+    isQuotaExceeded() {
+        return this._quotaExceeded;
+    }
+
+    /**
+     * Reset availability cache (useful for testing)
+     */
+    resetCache() {
+        this._available = null;
+        this._readOnly = false;
+        this._quotaExceeded = false;
     }
 
     /**
@@ -48,13 +94,34 @@ class StorageService {
      * @returns {boolean} Success status
      */
     set(key, value) {
-        if (!this.isAvailable()) return false;
+        if (!this.isAvailable()) {
+            // If storage is not available, app should continue in read-only mode
+            console.warn('localStorage not available - running in read-only mode');
+            return false;
+        }
+
+        if (this.isReadOnly()) {
+            console.warn('localStorage is read-only - cannot save data');
+            return false;
+        }
 
         try {
             localStorage.setItem(key, JSON.stringify(value));
+            // Reset quota exceeded flag on successful write
+            if (this._quotaExceeded) {
+                this._quotaExceeded = false;
+                this._readOnly = false;
+            }
             return true;
         } catch (error) {
-            console.error(`Error writing to localStorage: ${key}`, error);
+            // Handle quota exceeded
+            if (error.name === 'QuotaExceededError' || error.code === 22) {
+                this._quotaExceeded = true;
+                this._readOnly = true;
+                console.warn('localStorage quota exceeded - switching to read-only mode');
+            } else {
+                console.error(`Error writing to localStorage: ${key}`, error);
+            }
             return false;
         }
     }
@@ -162,4 +229,3 @@ class StorageService {
 }
 
 export default new StorageService();
-

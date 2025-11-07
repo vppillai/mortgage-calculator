@@ -1,67 +1,39 @@
 import { test, expect } from '@playwright/test';
+import { setupCalculator, fillAndCalculate, verifyThemeToggle } from './helpers.js';
 
-test.describe('Basic Mortgage Calculation User Journey', () => {
+test.describe('Mortgage Calculator Core Features', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await setupCalculator(page);
     });
 
-    test('should display the calculator page', async ({ page }) => {
+    test('should display calculator and calculate mortgage payment', async ({ page }) => {
+        // Verify calculator loaded
         await expect(page.locator('h1')).toContainText('Mortgage Prepayment Calculator');
         await expect(page.locator('#theme-toggle')).toBeVisible();
+
+        // Test calculation
+        await fillAndCalculate(page);
+        await expect(page.locator('#base-mortgage-results')).toContainText('$');
     });
 
-    test('should toggle dark mode', async ({ page }) => {
-        const htmlElement = page.locator('html');
+    test('should toggle dark mode and persist preference', async ({ page }) => {
+        // Toggle theme and verify
+        await verifyThemeToggle(page);
+        await expect(page.locator('html')).toHaveClass(/dark/);
 
-        // Check initial state
-        const initialClasses = await htmlElement.getAttribute('class');
-
-        // Toggle theme
-        await page.click('#theme-toggle');
-
-        // Wait for transition
-        await page.waitForTimeout(300);
-
-        // Check theme changed
-        const newClasses = await htmlElement.getAttribute('class');
-        expect(initialClasses).not.toBe(newClasses);
+        // Verify persistence after reload
+        await page.reload();
+        await setupCalculator(page); // Wait for reload
+        await expect(page.locator('html')).toHaveClass(/dark/);
     });
 
-    test('should calculate mortgage payment', async ({ page }) => {
-        // Wait for calculator to load
-        await expect(page.locator('#calculator-container')).toBeVisible();
-        
-        // Fill in calculator inputs
-        await page.fill('#principal', '500000');
-        await page.fill('#interestRate', '5.25');
-        await page.fill('#amortizationYears', '25');
-        
-        // Wait for calculation (debounced)
-        await page.waitForTimeout(500);
-        
-        // Check results are displayed
-        await expect(page.locator('#base-mortgage-results')).toBeVisible();
-    });
-
-    test('should be responsive on mobile', async ({ page }) => {
+    test('should work on mobile viewport', async ({ page }) => {
         await page.setViewportSize({ width: 375, height: 667 });
 
-        // Check mobile layout
-        await expect(page.locator('h1')).toBeVisible();
-        await expect(page.locator('#theme-toggle')).toBeVisible();
-    });
-
-    test('should persist theme preference', async ({ page, context }) => {
-        // Toggle to dark mode
-        await page.click('#theme-toggle');
-        await page.waitForTimeout(300);
-
-        // Reload page
-        await page.reload();
-
-        // Check theme persisted
-        const htmlClasses = await page.locator('html').getAttribute('class');
-        expect(htmlClasses).toContain('dark');
+        // Verify mobile layout and calculation
+        await expect(page.locator('#principal')).toBeVisible();
+        await fillAndCalculate(page, { principal: '400000' });
+        await expect(page.locator('#base-mortgage-results')).toContainText('$');
     });
 });
 

@@ -9,7 +9,7 @@ import { validateMortgageInputs } from '../services/validation.js';
 import { formatCAD } from '../services/currencyFormatter.js';
 import eventBus, { EVENTS } from '../utils/eventBus.js';
 import logger from '../utils/logger.js';
-import { MORTGAGE_CONSTANTS } from '../utils/constants.js';
+import { MORTGAGE_CONSTANTS, UI_CONSTANTS } from '../utils/constants.js';
 import { evaluateExpression, isExpression } from '../utils/expressionEvaluator.js';
 import {
     generateShareableUrl,
@@ -19,9 +19,19 @@ import {
     cleanUrl,
     copyToClipboard
 } from '../services/urlShareService.js';
-import html2canvas from 'html2canvas';
+import storageService from '../services/storage.js';
 
+/**
+ * Modern Calculator Component
+ * Single-page, real-time mortgage calculator with all features visible
+ *
+ * @class CalculatorModern
+ */
 export class CalculatorModern {
+    /**
+     * Create a new CalculatorModern instance
+     * @param {string} containerId - ID of the container element to render into
+     */
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         if (!this.container) {
@@ -29,7 +39,8 @@ export class CalculatorModern {
             return;
         }
 
-        this.state = {
+        // Default state
+        const defaultState = {
             principal: 298000,
             interestRate: 4.05,
             amortizationMonths: 360,
@@ -39,13 +50,23 @@ export class CalculatorModern {
             extraPaymentFrequency: 'per-payment',
         };
 
+        // Load saved state from localStorage (if available)
+        const savedState = this.loadSavedState();
+
+        // Merge saved state with defaults (saved state takes precedence)
+        this.state = { ...defaultState, ...savedState };
+
         this.result = null;
         this.prepaymentResult = null;
         this.scenarios = [];
         this.validationErrors = null;
         this.isCalculating = false;
+        this.stateLoadedFromUrl = false; // Track if state came from URL
+        this.lastStateKey = null; // For debounce optimization
+        this.calculationTimeout = null;
+        this.abortController = new AbortController(); // For event listener cleanup
 
-        // Check for shared scenarios in URL
+        // Check for shared scenarios in URL (this may override saved state)
         this.loadSharedScenarios();
 
         this.render();
@@ -55,16 +76,24 @@ export class CalculatorModern {
 
     render() {
         this.container.innerHTML = `
-      <div class="max-w-7xl mx-auto">
+      <!-- Screen reader announcements -->
+      <div id="results-announcement" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+      <!-- Skip to main content link -->
+      <a href="#calculator-main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg">
+        Skip to main content
+      </a>
+
+      <div class="max-w-7xl mx-auto" id="calculator-main">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-          
+
           <!-- Main Calculator Panel -->
           <div class="lg:col-span-5">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6">
               <h2 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
                 Prepayment Calculator
               </h2>
-              
+
               <div class="space-y-4">
                 <!-- Loan Amount -->
                 <div>
@@ -110,7 +139,7 @@ export class CalculatorModern {
                       <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" aria-hidden="true">%</span>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label for="amortizationYears" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                       Amortization
@@ -136,7 +165,7 @@ export class CalculatorModern {
                   <label for="paymentFrequency" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Payment Frequency
                   </label>
-                  <select 
+                  <select
                     id="paymentFrequency"
                     name="paymentFrequency"
                     aria-label="Payment frequency"
@@ -151,7 +180,7 @@ export class CalculatorModern {
 
                 <!-- Divider -->
                 <div class="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-                
+
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Prepayment Options</h3>
 
                 <!-- Extra Payment -->
@@ -185,7 +214,7 @@ export class CalculatorModern {
                   <label for="extraPaymentFrequency" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
                     Extra Payment Type
                   </label>
-                  <select 
+                  <select
                     id="extraPaymentFrequency"
                     name="extraPaymentFrequency"
                     aria-label="Extra payment frequency"
@@ -273,6 +302,17 @@ export class CalculatorModern {
     }
 
     renderMainResults() {
+        if (this.isCalculating) {
+            return `
+        <div class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400" role="status" aria-label="Calculating">
+            <span class="sr-only">Calculating...</span>
+          </div>
+          <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Calculating...</p>
+        </div>
+      `;
+        }
+
         if (!this.result) {
             if (this.validationErrors && this.validationErrors.isValid === false) {
                 return `
@@ -304,7 +344,7 @@ export class CalculatorModern {
           </div>
           <div class="text-xs text-gray-500">${MORTGAGE_CONSTANTS.PAYMENTS_PER_YEAR[this.state.paymentFrequency]} payments/year</div>
         </div>
-        
+
         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4">
           <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Interest</div>
           <div class="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
@@ -312,7 +352,7 @@ export class CalculatorModern {
           </div>
           <div class="text-xs text-gray-500">${(this.result.totalInterest / this.state.principal * 100).toFixed(1)}% of principal</div>
         </div>
-        
+
         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4">
           <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Cost</div>
           <div class="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
@@ -420,7 +460,7 @@ export class CalculatorModern {
                 this.state.paymentFrequency === 'bi-weekly' ? 'Bi-weekly' : 'Monthly'}
             </div>
           </div>
-          
+
           <div class="bg-green-100 dark:bg-green-900/40 rounded-lg p-2 sm:p-3">
             <div class="text-xs text-green-700 dark:text-green-300">Interest Saved</div>
             <div class="text-sm sm:text-base lg:text-lg font-bold text-green-900 dark:text-green-100">
@@ -428,7 +468,7 @@ export class CalculatorModern {
             </div>
             <div class="text-xs text-green-600 dark:text-green-400">${savings.savingsPercentage}% saved</div>
           </div>
-          
+
           <div class="bg-green-100 dark:bg-green-900/40 rounded-lg p-2 sm:p-3">
             <div class="text-xs text-green-700 dark:text-green-300">Time Saved</div>
             <div class="text-sm sm:text-base lg:text-lg font-bold text-green-900 dark:text-green-100">
@@ -438,7 +478,7 @@ export class CalculatorModern {
               ${Math.round(savings.monthsSaved / this.state.amortizationMonths * 100)}% faster
             </div>
           </div>
-          
+
           <div class="bg-green-100 dark:bg-green-900/40 rounded-lg p-2 sm:p-3">
             <div class="text-xs text-green-700 dark:text-green-300">Payoff Time</div>
             <div class="text-sm sm:text-base lg:text-lg font-bold text-green-900 dark:text-green-100">
@@ -449,10 +489,10 @@ export class CalculatorModern {
             </div>
           </div>
         </div>
-        
+
         <div class="mt-4 p-3 bg-green-200/50 dark:bg-green-900/50 rounded-lg">
           <p class="text-sm text-green-800 dark:text-green-200 text-center">
-            💡 Adding ${formatCAD(this.state.extraPaymentAmount)} ${this.state.extraPaymentFrequency === 'per-payment' ? 'to each payment' : this.state.extraPaymentFrequency === 'annual' ? 'annually' : 'once'} 
+            💡 Adding ${formatCAD(this.state.extraPaymentAmount)} ${this.state.extraPaymentFrequency === 'per-payment' ? 'to each payment' : this.state.extraPaymentFrequency === 'annual' ? 'annually' : 'once'}
             saves ${formatCAD(savings.totalInterestSaved)} and ${yearsSaved} years ${monthsSaved} months!
           </p>
         </div>
@@ -555,7 +595,13 @@ export class CalculatorModern {
         `;
     }
 
+    /**
+     * Attach event listeners to all interactive elements
+     * Uses AbortController for easy cleanup
+     */
     attachEventListeners() {
+        const signal = this.abortController.signal;
+
         // Real-time calculation on all inputs
         const inputs = ['principal', 'interestRate', 'amortizationYears', 'paymentFrequency',
             'extraPayment', 'extraPaymentFrequency'];
@@ -566,13 +612,13 @@ export class CalculatorModern {
                 element.addEventListener('input', (e) => {
                     this.handleInputChange(e);
                     this.calculateAll();
-                });
+                }, { signal });
 
                 if (element.tagName === 'SELECT') {
                     element.addEventListener('change', (e) => {
                         this.handleInputChange(e);
                         this.calculateAll();
-                    });
+                    }, { signal });
                 }
 
                 // Special handling for extraPayment field
@@ -582,11 +628,11 @@ export class CalculatorModern {
                             e.preventDefault();
                             this.evaluateExtraPayment();
                         }
-                    });
+                    }, { signal });
 
                     element.addEventListener('blur', () => {
                         this.evaluateExtraPayment();
-                    });
+                    }, { signal });
                 }
             }
         });
@@ -595,13 +641,22 @@ export class CalculatorModern {
         // Action buttons
         const resetBtn = document.getElementById('reset');
         if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.handleReset());
+            resetBtn.addEventListener('click', () => this.handleReset(), { signal });
         }
 
         const addToComparisonBtn = document.getElementById('add-to-comparison');
         if (addToComparisonBtn) {
-            addToComparisonBtn.addEventListener('click', () => this.addToComparison());
+            addToComparisonBtn.addEventListener('click', () => this.addToComparison(), { signal });
         }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+R or Cmd+R for reset (but allow browser refresh with Shift)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey) {
+                e.preventDefault();
+                this.handleReset();
+            }
+        }, { signal });
 
         // Set up remove scenario function
         window.removeScenario = (index) => {
@@ -632,6 +687,11 @@ export class CalculatorModern {
     handleInputChange(e) {
         const { id, value } = e.target;
 
+        // If state was loaded from URL, clear that flag so we start saving user changes
+        if (this.stateLoadedFromUrl) {
+            this.stateLoadedFromUrl = false;
+        }
+
         switch (id) {
             case 'principal':
                 this.state.principal = parseFloat(value) || 0;
@@ -656,16 +716,44 @@ export class CalculatorModern {
                 this.state.extraPaymentFrequency = value;
                 break;
         }
+
+        // Save state to localStorage (debounced)
+        this.saveStateToStorage();
     }
 
+    /**
+     * Calculate all mortgage values with debouncing and state change detection
+     * Skips calculation if state hasn't changed since last calculation
+     */
     calculateAll() {
         // Debounce calculations
         clearTimeout(this.calculationTimeout);
+
+        // Check if state actually changed
+        const stateKey = JSON.stringify({
+            principal: this.state.principal,
+            interestRate: this.state.interestRate,
+            amortizationMonths: this.state.amortizationMonths,
+            paymentFrequency: this.state.paymentFrequency,
+            extraPaymentAmount: this.state.extraPaymentAmount,
+            extraPaymentFrequency: this.state.extraPaymentFrequency,
+            targetPayment: this.state.targetPayment,
+        });
+
+        if (this.lastStateKey === stateKey) {
+            return; // Skip if no changes
+        }
+        this.lastStateKey = stateKey;
+
         this.calculationTimeout = setTimeout(() => {
             this.performCalculations();
-        }, 300);
+        }, UI_CONSTANTS.DEBOUNCE_DELAY);
     }
 
+    /**
+     * Perform mortgage calculations based on current state
+     * Validates inputs, calculates base mortgage and prepayment scenarios
+     */
     performCalculations() {
         this.isCalculating = true;
 
@@ -712,6 +800,9 @@ export class CalculatorModern {
 
             // Update only the results sections
             this.updateResults();
+
+            // Announce results to screen readers
+            this.announceResults();
 
             // Emit events
             eventBus.emit(EVENTS.CALCULATION_COMPLETE, {
@@ -779,6 +870,24 @@ export class CalculatorModern {
                 }
             }
         });
+    }
+
+    /**
+     * Announce calculation results to screen readers
+     */
+    announceResults() {
+        if (!this.result) return;
+
+        const announcement = document.getElementById('results-announcement');
+        if (announcement) {
+            const frequency = this.state.paymentFrequency;
+            const payment = formatCAD(this.result.regularPayment);
+            const totalInterest = formatCAD(this.result.totalInterest);
+
+            announcement.textContent =
+                `Payment calculated: ${payment} per ${frequency}. Total interest: ${totalInterest}. ` +
+                `Total cost: ${formatCAD(this.result.totalCost)}.`;
+        }
     }
 
     updateResults() {
@@ -853,7 +962,7 @@ export class CalculatorModern {
                   </div>
                 </div>
             `;
-            
+
             // Re-attach button listeners after DOM update
             this.attachShareButtonListener();
             this.attachScreenshotButtonListener();
@@ -867,6 +976,9 @@ export class CalculatorModern {
     }
 
     handleReset() {
+        // Clear any pending saves
+        clearTimeout(this.saveTimeout);
+
         this.state = {
             principal: 298000,
             interestRate: 4.05,
@@ -878,6 +990,11 @@ export class CalculatorModern {
         };
         this.result = null;
         this.prepaymentResult = null;
+        this.stateLoadedFromUrl = false;
+
+        // Clear saved state from localStorage
+        storageService.remove(MORTGAGE_CONSTANTS.STORAGE_KEYS.CURRENT);
+
         this.render();
         this.attachEventListeners();
         this.calculateAll();
@@ -887,11 +1004,17 @@ export class CalculatorModern {
         const input = document.getElementById('extraPayment');
         if (!input) return;
 
+        // If state was loaded from URL, clear that flag so we start saving user changes
+        if (this.stateLoadedFromUrl) {
+            this.stateLoadedFromUrl = false;
+        }
+
         const value = input.value.trim();
 
         if (!value) {
             this.state.extraPaymentAmount = 0;
             this.calculateAll();
+            this.saveStateToStorage();
             return;
         }
 
@@ -941,6 +1064,9 @@ export class CalculatorModern {
                 });
             }
         }
+
+        // Save state after extra payment is evaluated
+        this.saveStateToStorage();
     }
 
     addToComparison() {
@@ -1044,6 +1170,65 @@ export class CalculatorModern {
         }
     }
 
+    /**
+     * Load saved state from localStorage
+     * @returns {Object} Saved state or empty object if none exists
+     */
+    loadSavedState() {
+        try {
+            const saved = storageService.getCurrent();
+            if (saved && typeof saved === 'object') {
+                // Only return the fields we want to persist
+                return {
+                    principal: saved.principal,
+                    interestRate: saved.interestRate,
+                    amortizationMonths: saved.amortizationMonths,
+                    paymentFrequency: saved.paymentFrequency,
+                    extraPaymentAmount: saved.extraPaymentAmount || 0,
+                    extraPaymentFrequency: saved.extraPaymentFrequency || 'per-payment',
+                };
+            }
+        } catch (error) {
+            logger.debug('Failed to load saved state:', error);
+        }
+        return {};
+    }
+
+    /**
+     * Save current state to localStorage (debounced)
+     * Only saves if state wasn't loaded from URL
+     */
+    saveStateToStorage() {
+        // Don't save if state came from URL (respect shared scenarios)
+        if (this.stateLoadedFromUrl) {
+            return;
+        }
+
+        // Clear any existing save timeout
+        clearTimeout(this.saveTimeout);
+
+        // Debounce saves to avoid excessive localStorage writes
+        this.saveTimeout = setTimeout(() => {
+            try {
+                // Only save the basic input fields
+                const stateToSave = {
+                    principal: this.state.principal,
+                    interestRate: this.state.interestRate,
+                    amortizationMonths: this.state.amortizationMonths,
+                    paymentFrequency: this.state.paymentFrequency,
+                    extraPaymentAmount: this.state.extraPaymentAmount || 0,
+                    extraPaymentFrequency: this.state.extraPaymentFrequency || 'per-payment',
+                };
+
+                storageService.saveCurrent(stateToSave);
+                logger.debug('State saved to localStorage');
+            } catch (error) {
+                logger.debug('Failed to save state to localStorage:', error);
+                // Don't show error to user - localStorage failures are silent
+            }
+        }, 1000); // Save 1 second after last change
+    }
+
     loadSharedScenarios() {
         try {
             const sharedScenarios = parseScenariosFromUrl();
@@ -1137,6 +1322,9 @@ export class CalculatorModern {
                     this.state.paymentFrequency = firstScenario.paymentFrequency;
                     this.state.extraPaymentAmount = firstScenario.extraPaymentAmount || 0;
                     this.state.extraPaymentFrequency = firstScenario.extraPaymentFrequency || 'per-payment';
+
+                    // Mark that state was loaded from URL (don't overwrite with saved state)
+                    this.stateLoadedFromUrl = true;
                 }
 
                 // Clean the URL after loading
@@ -1202,7 +1390,7 @@ export class CalculatorModern {
             }
         } catch (error) {
             logger.error('Failed to generate share link:', error);
-            
+
             // Even on error, try to show the modal with the URL
             try {
                 const shareableUrl = generateShareableUrl(this.scenarios);
@@ -1246,23 +1434,23 @@ export class CalculatorModern {
                                     </svg>
                                 </button>
                             </div>
-                            
+
                             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                                 Copy this link to share your ${this.scenarios.length} scenario${this.scenarios.length > 1 ? 's' : ''}:
                             </p>
-                            
+
                             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
                                 <div class="flex items-center gap-2">
-                                    <input 
-                                        type="text" 
-                                        id="share-url-input" 
-                                        readonly 
-                                        value="${url}" 
+                                    <input
+                                        type="text"
+                                        id="share-url-input"
+                                        readonly
+                                        value="${url}"
                                         class="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 border-none outline-none"
                                         aria-label="Share URL"
                                     />
-                                    <button 
-                                        id="share-copy-btn" 
+                                    <button
+                                        id="share-copy-btn"
                                         class="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                                         aria-label="Copy URL"
                                     >
@@ -1270,18 +1458,18 @@ export class CalculatorModern {
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <div class="flex gap-2">
-                                <button 
-                                    id="share-native-btn" 
+                                <button
+                                    id="share-native-btn"
                                     class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     ${!navigator.share ? 'disabled' : ''}
                                     aria-label="Share using native sharing"
                                 >
                                     ${navigator.share ? '📤 Share' : 'Native sharing not available'}
                                 </button>
-                                <button 
-                                    id="share-modal-close-btn" 
+                                <button
+                                    id="share-modal-close-btn"
                                     class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-lg"
                                 >
                                     Close
@@ -1374,6 +1562,9 @@ export class CalculatorModern {
         }
     }
 
+    /**
+     * Copy comparison table as screenshot (lazy loads html2canvas)
+     */
     async copyTableScreenshot() {
         if (this.scenarios.length === 0) {
             eventBus.emit(EVENTS.NOTIFICATION, {
@@ -1384,6 +1575,10 @@ export class CalculatorModern {
         }
 
         try {
+            // Lazy load html2canvas
+            const html2canvasModule = await import('html2canvas');
+            const html2canvas = html2canvasModule.default || html2canvasModule;
+
             // Show loading notification for mobile users
             const isMobile = this.isMobileDevice();
             if (isMobile) {
@@ -1404,8 +1599,8 @@ export class CalculatorModern {
             clone.style.position = 'absolute';
             clone.style.left = '-9999px';
             clone.style.width = tableContainer.offsetWidth + 'px';
-            clone.style.backgroundColor = document.documentElement.classList.contains('dark') 
-                ? '#1f2937' 
+            clone.style.backgroundColor = document.documentElement.classList.contains('dark')
+                ? '#1f2937'
                 : '#ffffff';
             clone.style.padding = '20px';
             clone.style.borderRadius = '8px';
@@ -1417,7 +1612,7 @@ export class CalculatorModern {
                 scrollableDiv.style.maxHeight = 'none';
                 scrollableDiv.style.height = 'auto';
             }
-            
+
             // Also handle nested overflow containers
             clone.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-auto').forEach(el => {
                 el.style.overflow = 'visible';
@@ -1461,10 +1656,10 @@ export class CalculatorModern {
             websiteLink.style.textAlign = 'center';
             websiteLink.style.fontSize = '12px';
             websiteLink.style.fontWeight = '500';
-            websiteLink.style.color = document.documentElement.classList.contains('dark') 
-                ? '#9ca3af' 
+            websiteLink.style.color = document.documentElement.classList.contains('dark')
+                ? '#9ca3af'
                 : '#6b7280';
-            
+
             // Get website URL from current location
             try {
                 const baseUrl = import.meta.env?.BASE_URL || '/';
@@ -1485,7 +1680,7 @@ export class CalculatorModern {
                 backgroundColor: document.documentElement.classList.contains('dark')
                     ? '#1f2937'
                     : '#ffffff',
-                scale: isMobile ? 1 : 2, // Lower scale for mobile to prevent memory issues
+                scale: isMobile ? UI_CONSTANTS.SCREENSHOT_SCALE_MOBILE : UI_CONSTANTS.SCREENSHOT_SCALE_DESKTOP,
                 logging: false,
                 useCORS: true,
                 allowTaint: false,
@@ -1494,7 +1689,7 @@ export class CalculatorModern {
                 // Mobile-specific optimizations
                 foreignObjectRendering: false, // Disable for better Android compatibility
                 removeContainer: true,
-                imageTimeout: 15000, // Longer timeout for slower mobile networks
+                imageTimeout: UI_CONSTANTS.SCREENSHOT_TIMEOUT,
             };
 
             let canvas;
@@ -1586,7 +1781,7 @@ export class CalculatorModern {
                     if (isMobile && navigator.share) {
                         try {
                             const file = new File([blob], 'mortgage-comparison.png', { type: 'image/png' });
-                            
+
                             // Try sharing with file first (best experience on mobile)
                             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                                 await navigator.share({
@@ -1811,6 +2006,31 @@ export class CalculatorModern {
                 throw new Error('Download failed - browser may not support file downloads');
             }
         }
+    }
+
+    /**
+     * Clean up event listeners and resources
+     */
+    destroy() {
+        // Abort all event listeners
+        this.abortController.abort();
+
+        // Clear timeouts
+        if (this.calculationTimeout) {
+            clearTimeout(this.calculationTimeout);
+            this.calculationTimeout = null;
+        }
+
+        // Clean up DOM references
+        this.container = null;
+
+        // Clear state
+        this.result = null;
+        this.prepaymentResult = null;
+        this.scenarios = [];
+        this.validationErrors = null;
+
+        logger.debug('CalculatorModern destroyed');
     }
 }
 

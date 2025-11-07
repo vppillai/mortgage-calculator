@@ -5,6 +5,8 @@ describe('Storage Service', () => {
     beforeEach(() => {
         // Clear localStorage before each test
         localStorage.clear();
+        // Reset storage service cache
+        storageService.resetCache();
     });
 
     describe('isAvailable()', () => {
