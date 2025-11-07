@@ -98,8 +98,18 @@ export class AmortizationSchedule {
           <button id="download-schedule" class="btn btn-secondary text-sm">
             Download CSV
           </button>
-          <div class="text-xs text-gray-500 dark:text-gray-400">
-            Page ${this.currentPage + 1} of ${Math.ceil(this.schedule.length / this.pageSize)}
+          <div class="flex items-center gap-4">
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+              Page ${this.currentPage + 1} of ${Math.ceil(this.schedule.length / this.pageSize)}
+            </div>
+            <div class="flex gap-2">
+              <button id="prev-page-bottom" class="btn btn-secondary text-sm" ${this.currentPage === 0 ? 'disabled' : ''}>
+                Previous
+              </button>
+              <button id="next-page-bottom" class="btn btn-secondary text-sm" ${end >= this.schedule.length ? 'disabled' : ''}>
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -129,6 +139,28 @@ export class AmortizationSchedule {
         const nextBtn = document.getElementById('next-page');
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
+                const maxPage = Math.ceil(this.schedule.length / this.pageSize) - 1;
+                if (this.currentPage < maxPage) {
+                    this.currentPage++;
+                    this.render();
+                }
+            });
+        }
+
+        // Bottom pagination buttons
+        const prevBtnBottom = document.getElementById('prev-page-bottom');
+        if (prevBtnBottom) {
+            prevBtnBottom.addEventListener('click', () => {
+                if (this.currentPage > 0) {
+                    this.currentPage--;
+                    this.render();
+                }
+            });
+        }
+
+        const nextBtnBottom = document.getElementById('next-page-bottom');
+        if (nextBtnBottom) {
+            nextBtnBottom.addEventListener('click', () => {
                 const maxPage = Math.ceil(this.schedule.length / this.pageSize) - 1;
                 if (this.currentPage < maxPage) {
                     this.currentPage++;
