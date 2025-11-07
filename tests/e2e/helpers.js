@@ -13,16 +13,16 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     // This ensures the change detection works correctly
     await page.locator('#principal').fill('');
     await page.locator('#principal').type(principal, { delay: 50 });
-    
+
     await page.locator('#interestRate').fill('');
     await page.locator('#interestRate').type(interestRate, { delay: 50 });
-    
+
     await page.locator('#amortizationYears').fill('');
     await page.locator('#amortizationYears').type(amortizationYears, { delay: 50 });
-    
+
     // Wait a moment for all input events to process
     await page.waitForTimeout(200);
-    
+
     // Wait for results container to be visible
     const resultsLocator = page.locator('#base-mortgage-results');
     await resultsLocator.waitFor({ state: 'visible', timeout: 2000 });
@@ -34,7 +34,7 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     // Wait for actual results to appear (must contain $)
     // This will wait up to 25 seconds for the calculation to complete
     await expect(resultsLocator).toContainText('$', { timeout: 25000 });
-    
+
     // Final verification that we have actual results
     const text = await resultsLocator.textContent();
     if (!text || !text.includes('$')) {
