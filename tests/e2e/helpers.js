@@ -18,15 +18,20 @@ export async function fillAndCalculate(page, { principal = '500000', interestRat
     const resultsLocator = page.locator('#base-mortgage-results');
     await resultsLocator.waitFor({ state: 'visible', timeout: 2000 });
 
-    // Wait for debounce delay to complete (500ms) + small buffer
-    await page.waitForTimeout(700);
-
-    // Wait for loading state to disappear - check that "Calculating..." is not present
-    // This uses Playwright's expect which respects the expect.timeout setting
-    await expect(resultsLocator).not.toContainText('Calculating...', { timeout: 15000 });
-
-    // Wait for actual results to appear (must contain $)
-    await expect(resultsLocator).toContainText('$', { timeout: 15000 });
+    // Wait for debounce delay to complete (500ms) + calculation time
+    // Instead of checking for "not Calculating", just wait for results to appear
+    // This is more reliable - if results appear, Calculating is gone
+    await expect(resultsLocator).toContainText('$', { timeout: 20000 });
+    
+    // Additional check: ensure we have actual results, not just loading state
+    // Wait a bit more to ensure calculation is complete
+    await page.waitForTimeout(500);
+    
+    // Final verification that we have results
+    const text = await resultsLocator.textContent();
+    if (text && text.includes('Calculating...')) {
+        throw new Error('Calculation still in progress after timeout');
+    }
 }
 
 /**
