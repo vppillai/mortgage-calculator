@@ -57,7 +57,8 @@ export function validateMortgageInputs(inputs) {
     const warnings = [];
     const fieldErrors = {};
 
-    const { principal, interestRate, amortizationMonths, paymentFrequency, isHighRatio } = inputs;
+    const { principal, interestRate, amortizationMonths, paymentFrequency } = inputs;
+    // isHighRatio removed - not currently used in validation
 
     // Validate principal
     if (principal < MORTGAGE_CONSTANTS.MIN_PRINCIPAL) {
