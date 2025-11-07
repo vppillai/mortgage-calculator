@@ -1,8 +1,8 @@
 {
-  "version": "b369d10-dirty",
+  "version": "02c7a6a-dirty",
   "isRelease": false,
-  "commit": "b369d108c68596fda986555c9cda501208498eab",
-  "commitShort": "b369d10",
-  "buildTime": "2025-11-07T15:42:31.313Z",
-  "buildTimeLocal": "Nov 7, 2025, 03:42 PM UTC"
+  "commit": "02c7a6a2e9fb2c39385c4fd44bae9fc11ae1afa1",
+  "commitShort": "02c7a6a",
+  "buildTime": "2025-11-07T15:46:09.271Z",
+  "buildTimeLocal": "Nov 7, 2025, 03:46 PM UTC"
 }
