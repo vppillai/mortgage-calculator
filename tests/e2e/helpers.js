@@ -2,10 +2,6 @@
  * E2E Test Helpers - Common functions to reduce test duplication and improve performance
  */
 
-/**
- * E2E Test Helpers - Common functions to reduce test duplication and improve performance
- */
-
 import { expect } from '@playwright/test';
 
 /**
