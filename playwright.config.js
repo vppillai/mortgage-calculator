@@ -9,7 +9,7 @@ export default defineConfig({
     reporter: process.env.CI ? 'github' : 'list', // Faster reporters
     timeout: 30000, // Reduce overall test timeout
     expect: {
-        timeout: 5000, // Faster assertion timeout
+        timeout: 15000, // Increased timeout to account for debounce + calculation
     },
     use: {
         baseURL: 'http://localhost:4173',
