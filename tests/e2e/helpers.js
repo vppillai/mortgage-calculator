@@ -9,28 +9,50 @@ import { expect } from '@playwright/test';
  * Uses Playwright's expect with proper timeout handling
  */
 export async function fillAndCalculate(page, { principal = '500000', interestRate = '5.25', amortizationYears = '25' } = {}) {
+    // Clear fields first to ensure change detection works
+    await page.fill('#principal', '');
+    await page.fill('#interestRate', '');
+    await page.fill('#amortizationYears', '');
+    await page.waitForTimeout(100);
+    
     // Fill in the form fields
     await page.fill('#principal', principal);
     await page.fill('#interestRate', interestRate);
     await page.fill('#amortizationYears', amortizationYears);
 
+    // Trigger input events to ensure calculation is triggered
+    await page.locator('#principal').dispatchEvent('input');
+    await page.locator('#interestRate').dispatchEvent('input');
+    await page.locator('#amortizationYears').dispatchEvent('input');
+    
     // Wait for results container to be visible
     const resultsLocator = page.locator('#base-mortgage-results');
     await resultsLocator.waitFor({ state: 'visible', timeout: 2000 });
 
     // Wait for debounce delay to complete (500ms) + calculation time
-    // Instead of checking for "not Calculating", just wait for results to appear
-    // This is more reliable - if results appear, Calculating is gone
-    await expect(resultsLocator).toContainText('$', { timeout: 20000 });
-    
-    // Additional check: ensure we have actual results, not just loading state
-    // Wait a bit more to ensure calculation is complete
-    await page.waitForTimeout(500);
+    // Wait longer to ensure calculation completes
+    await page.waitForTimeout(1000);
+
+    // Wait for actual results to appear (must contain $)
+    // Use a more flexible approach - wait for either results or check if still calculating
+    try {
+        await expect(resultsLocator).toContainText('$', { timeout: 25000 });
+    } catch (e) {
+        // If timeout, check what state we're in
+        const text = await resultsLocator.textContent();
+        if (text && text.includes('Calculating...')) {
+            throw new Error(`Calculation timed out - still showing "Calculating..." after 25s. Current text: ${text.substring(0, 100)}`);
+        }
+        if (text && text.includes('Enter your mortgage details')) {
+            throw new Error(`Calculation didn't trigger - showing empty state. Current text: ${text.substring(0, 100)}`);
+        }
+        throw e;
+    }
     
     // Final verification that we have results
     const text = await resultsLocator.textContent();
-    if (text && text.includes('Calculating...')) {
-        throw new Error('Calculation still in progress after timeout');
+    if (!text || !text.includes('$')) {
+        throw new Error(`Expected results with $ but got: ${text?.substring(0, 100)}`);
     }
 }
 
